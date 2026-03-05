@@ -53,7 +53,9 @@ Environment variables:
   BRAVE_API_KEY          Brave Search API key (free tier)
   SEARCHENG_PORT         Server port (default: 8080)
   SEARCHENG_TIMEOUT      Search timeout (default: 5s)
-  SEARCHENG_MAX_RESULTS  Max results (default: 20)`)
+  SEARCHENG_MAX_RESULTS  Max results (default: 20)
+  SEARCHENG_MAX_RETRIES  Max retries on 429/5xx (default: 2)
+  SEARCHENG_RETRY_DELAY  Base delay for retry backoff (default: 500ms)`)
 }
 
 func buildScrapingClient(cfg config.Config, reqsPerMinute float64) *http.Client {

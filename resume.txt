@@ -1,7 +1,7 @@
 SearchEng - Meta-Search Engine em Go
 =====================================
 Resumo da implementação - 2026-03-03
-Atualizado: 2026-03-05
+Atualizado: 2026-03-05 (v2: anti-bloqueio)
 
 ## O que foi feito
 
@@ -21,7 +21,6 @@ Atualizado: 2026-03-05
   - Extrai resultados de links com classe "result__a" e snippets "result__snippet"
   - Resolve URLs de redirect do DDG (parâmetro uddg)
 - Google (google.go): scraping HTML de google.com/search
-  - User-Agent rotativo (4 opções)
   - Busca resultados em divs com classe "g", títulos em <h3>, snippets em "VwiC3b"
 - Bing (bing.go): scraping HTML de bing.com/search
   - Resultados em <li class="b_algo">, títulos em <h2><a>, snippets em <div class="b_caption"><p>
@@ -39,6 +38,7 @@ Atualizado: 2026-03-05
 ### 5. Config (config/config.go)
 - Carrega de variáveis de ambiente:
   - BRAVE_API_KEY, SEARCHENG_PORT (8080), SEARCHENG_TIMEOUT (5s), SEARCHENG_MAX_RESULTS (20)
+  - SEARCHENG_MAX_RETRIES (2), SEARCHENG_RETRY_DELAY (500ms)
 
 ### 6. CLI (main.go)
 - Subcomando "search": busca e exibe resultados formatados no terminal
@@ -51,6 +51,14 @@ Atualizado: 2026-03-05
 - GET /health → {"status":"ok"}
 - Sem autenticação (uso local)
 
+### 8. Anti-bloqueio (engine/httpclient.go)
+- Pool de 6 User-Agents modernos compartilhado por todos os providers de scraping
+- Headers realistas (Accept, Accept-Language, DNT, Connection, Upgrade-Insecure-Requests)
+- Retry com backoff exponencial + jitter em 429, 503, 5xx e erros de rede
+- Rate limiting por provider: DDG 10/min, Google 5/min, Bing 10/min
+- Cookie jar para scraping providers (mantém sessão entre requests)
+- Stack de transports: retry -> rate limit -> default transport
+
 ## Arquivos criados
 - main.go (CLI com subcomandos)
 - engine/result.go (tipos)
@@ -60,6 +68,7 @@ Atualizado: 2026-03-05
 - engine/bing.go (provider Bing)
 - engine/brave.go (provider Brave)
 - engine/engine.go (aggregator)
+- engine/httpclient.go (anti-bloqueio: UA, headers, retry, rate limit)
 - api/server.go (servidor HTTP)
 - config/config.go (configuração)
 - go.mod, go.sum
@@ -90,13 +99,13 @@ Atualizado: 2026-03-05
 
 ### Melhorias sugeridas para qualidade de pesquisa
 
-1. **Anti-bloqueio / Resiliência**
-   - Rotação de User-Agent: DDG e Bing usam UA fixo, só Google rotaciona → aplicar a todos
-   - Pool de proxies: rodar requests por SOCKS5/HTTP proxies para evitar rate-limiting
-   - Retry com backoff exponencial: se status 429/503, esperar e tentar novamente
-   - Headers realistas: Accept, Accept-Encoding, Referer, DNT para parecer browser real
-   - Cookie jar: manter cookies entre requests para sessões mais naturais
-   - Rate limiting interno: limitar queries/minuto por provider
+1. **Anti-bloqueio / Resiliência** (IMPLEMENTADO em 2026-03-05)
+   - [x] Rotação de User-Agent: pool compartilhado de 6 UAs modernos para todos os providers
+   - [ ] Pool de proxies: rodar requests por SOCKS5/HTTP proxies para evitar rate-limiting
+   - [x] Retry com backoff exponencial: status 429/503/5xx + erros de rede, configurável via env
+   - [x] Headers realistas: Accept, Accept-Language, DNT, Connection, Upgrade-Insecure-Requests
+   - [x] Cookie jar: manter cookies entre requests para sessões mais naturais
+   - [x] Rate limiting interno: DDG 10/min, Google 5/min, Bing 10/min
 
 2. **Qualidade do ranking**
    - Ranking atual é simples (posição + bonus multi-source)
