@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"net/http"
+	"net/http/cookiejar"
 	"os"
 	"strings"
 	"time"
@@ -61,7 +62,8 @@ func buildScrapingClient(cfg config.Config, reqsPerMinute float64) *http.Client 
 		engine.NewRateLimitedTransport(http.DefaultTransport, limiter),
 		cfg.MaxRetries, cfg.RetryBaseDelay,
 	)
-	return &http.Client{Timeout: cfg.Timeout, Transport: transport}
+	jar, _ := cookiejar.New(nil)
+	return &http.Client{Timeout: cfg.Timeout, Transport: transport, Jar: jar}
 }
 
 func buildEngine(cfg config.Config, providerFlag string) *engine.Engine {
