@@ -28,8 +28,7 @@ func (b *Bing) Search(query string, page int) ([]Result, error) {
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("User-Agent", "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0")
-	req.Header.Set("Accept-Language", "en-US,en;q=0.9")
+	setBrowserHeaders(req)
 
 	resp, err := b.client().Do(req)
 	if err != nil {

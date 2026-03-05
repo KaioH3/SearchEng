@@ -28,7 +28,7 @@ func (d *DuckDuckGo) Search(query string, page int) ([]Result, error) {
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("User-Agent", "Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0")
+	setBrowserHeaders(req)
 
 	resp, err := d.client().Do(req)
 	if err != nil {
