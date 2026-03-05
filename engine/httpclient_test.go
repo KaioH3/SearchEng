@@ -9,6 +9,8 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"golang.org/x/time/rate"
 )
 
 func TestRandomUserAgent(t *testing.T) {
@@ -190,5 +192,46 @@ func TestRetryTransport_RespectsContextCancellation(t *testing.T) {
 	_, err := rt.RoundTrip(req)
 	if !errors.Is(err, context.Canceled) {
 		t.Errorf("expected context.Canceled, got %v", err)
+	}
+}
+
+func TestRateLimitedTransport_PassesRequest(t *testing.T) {
+	mock := &mockTransport{
+		responses: []*http.Response{makeResp(200)},
+	}
+	limiter := rate.NewLimiter(rate.Inf, 1)
+	rt := NewRateLimitedTransport(mock, limiter)
+	req, _ := http.NewRequest("GET", "https://example.com", nil)
+
+	resp, err := rt.RoundTrip(req)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if resp.StatusCode != 200 {
+		t.Errorf("status = %d, want 200", resp.StatusCode)
+	}
+	if mock.calls.Load() != 1 {
+		t.Errorf("calls = %d, want 1", mock.calls.Load())
+	}
+}
+
+func TestRateLimitedTransport_RespectsContextCancellation(t *testing.T) {
+	mock := &mockTransport{}
+	// Very slow limiter with burst 1 so it enters Wait, then cancel context
+	limiter := rate.NewLimiter(rate.Every(time.Hour), 1)
+	rt := NewRateLimitedTransport(mock, limiter)
+
+	// Consume the burst token
+	req1, _ := http.NewRequest("GET", "https://example.com", nil)
+	rt.RoundTrip(req1)
+
+	// Now the limiter has no tokens; a cancelled context should fail
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	req2, _ := http.NewRequestWithContext(ctx, "GET", "https://example.com", nil)
+
+	_, err := rt.RoundTrip(req2)
+	if err == nil {
+		t.Error("expected error, got nil")
 	}
 }

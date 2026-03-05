@@ -5,6 +5,8 @@ import (
 	"math/rand"
 	"net/http"
 	"time"
+
+	"golang.org/x/time/rate"
 )
 
 var userAgentPool = []string{
@@ -63,6 +65,23 @@ func (t *retryTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	}
 
 	return resp, fmt.Errorf("request failed after %d retries: %w", t.maxRetries+1, err)
+}
+
+// NewRateLimitedTransport creates a transport that rate-limits requests.
+func NewRateLimitedTransport(base http.RoundTripper, limiter *rate.Limiter) http.RoundTripper {
+	return &rateLimitedTransport{base: base, limiter: limiter}
+}
+
+type rateLimitedTransport struct {
+	base    http.RoundTripper
+	limiter *rate.Limiter
+}
+
+func (t *rateLimitedTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	if err := t.limiter.Wait(req.Context()); err != nil {
+		return nil, err
+	}
+	return t.base.RoundTrip(req)
 }
 
 func setBrowserHeaders(req *http.Request) {

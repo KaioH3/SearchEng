@@ -10,6 +10,7 @@ import (
 	"github.com/usuario/searcheng/api"
 	"github.com/usuario/searcheng/config"
 	"github.com/usuario/searcheng/engine"
+	"golang.org/x/time/rate"
 )
 
 func main() {
@@ -54,18 +55,24 @@ Environment variables:
   SEARCHENG_MAX_RESULTS  Max results (default: 20)`)
 }
 
-func buildEngine(cfg config.Config, providerFlag string) *engine.Engine {
-	scrapingTransport := engine.NewRetryTransport(http.DefaultTransport, cfg.MaxRetries, cfg.RetryBaseDelay)
-	scrapingClient := &http.Client{Timeout: cfg.Timeout, Transport: scrapingTransport}
-	braveClient := &http.Client{Timeout: cfg.Timeout}
+func buildScrapingClient(cfg config.Config, reqsPerMinute float64) *http.Client {
+	limiter := rate.NewLimiter(rate.Limit(reqsPerMinute/60.0), 1)
+	transport := engine.NewRetryTransport(
+		engine.NewRateLimitedTransport(http.DefaultTransport, limiter),
+		cfg.MaxRetries, cfg.RetryBaseDelay,
+	)
+	return &http.Client{Timeout: cfg.Timeout, Transport: transport}
+}
 
+func buildEngine(cfg config.Config, providerFlag string) *engine.Engine {
 	allProviders := map[string]engine.Provider{
-		"ddg":    &engine.DuckDuckGo{Client: scrapingClient},
-		"google": &engine.Google{Client: scrapingClient},
-		"bing":   &engine.Bing{Client: scrapingClient},
+		"ddg":    &engine.DuckDuckGo{Client: buildScrapingClient(cfg, 10)},
+		"google": &engine.Google{Client: buildScrapingClient(cfg, 5)},
+		"bing":   &engine.Bing{Client: buildScrapingClient(cfg, 10)},
 	}
 
 	if cfg.BraveAPIKey != "" {
+		braveClient := &http.Client{Timeout: cfg.Timeout}
 		allProviders["brave"] = &engine.Brave{APIKey: cfg.BraveAPIKey, Client: braveClient}
 	}
 
