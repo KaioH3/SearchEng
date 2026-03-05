@@ -55,16 +55,18 @@ Environment variables:
 }
 
 func buildEngine(cfg config.Config, providerFlag string) *engine.Engine {
-	httpClient := &http.Client{Timeout: cfg.Timeout}
+	scrapingTransport := engine.NewRetryTransport(http.DefaultTransport, cfg.MaxRetries, cfg.RetryBaseDelay)
+	scrapingClient := &http.Client{Timeout: cfg.Timeout, Transport: scrapingTransport}
+	braveClient := &http.Client{Timeout: cfg.Timeout}
 
 	allProviders := map[string]engine.Provider{
-		"ddg":    &engine.DuckDuckGo{Client: httpClient},
-		"google": &engine.Google{Client: httpClient},
-		"bing":   &engine.Bing{Client: httpClient},
+		"ddg":    &engine.DuckDuckGo{Client: scrapingClient},
+		"google": &engine.Google{Client: scrapingClient},
+		"bing":   &engine.Bing{Client: scrapingClient},
 	}
 
 	if cfg.BraveAPIKey != "" {
-		allProviders["brave"] = &engine.Brave{APIKey: cfg.BraveAPIKey, Client: httpClient}
+		allProviders["brave"] = &engine.Brave{APIKey: cfg.BraveAPIKey, Client: braveClient}
 	}
 
 	var providers []engine.Provider
