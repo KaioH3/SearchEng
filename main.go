@@ -154,7 +154,7 @@ func cmdSearch(cfg config.Config, args []string) {
 	}
 
 	fmt.Println()
-	fmt.Printf(strings.Repeat("─", 60)+"\n")
+	fmt.Println(strings.Repeat("─", 60))
 	fmt.Printf("Found %d results in %s\n", len(resp.Results), resp.Duration.Round(time.Millisecond))
 }
 
