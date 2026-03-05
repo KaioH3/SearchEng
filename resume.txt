@@ -1,0 +1,172 @@
+SearchEng - Meta-Search Engine em Go
+=====================================
+Resumo da implementação - 2026-03-03
+Atualizado: 2026-03-05
+
+## O que foi feito
+
+### 1. Setup do projeto
+- Go 1.24.1 instalado em ~/.local/go (adicionado ao PATH via .zshrc)
+- Módulo Go inicializado: github.com/usuario/searcheng
+- Dependência: golang.org/x/net v0.51.0 (parser HTML)
+- Estrutura de diretórios: engine/, api/, config/
+
+### 2. Tipos base (engine/result.go, engine/provider.go)
+- Result: Title, URL, Snippet, Source, Score (interno para ranking)
+- SearchResponse: Query, Results, Duration, Page
+- Interface Provider: Search(query, page) e Name()
+
+### 3. Providers implementados (engine/)
+- DuckDuckGo (duckduckgo.go): scraping HTML de html.duckduckgo.com/html/
+  - Extrai resultados de links com classe "result__a" e snippets "result__snippet"
+  - Resolve URLs de redirect do DDG (parâmetro uddg)
+- Google (google.go): scraping HTML de google.com/search
+  - User-Agent rotativo (4 opções)
+  - Busca resultados em divs com classe "g", títulos em <h3>, snippets em "VwiC3b"
+- Bing (bing.go): scraping HTML de bing.com/search
+  - Resultados em <li class="b_algo">, títulos em <h2><a>, snippets em <div class="b_caption"><p>
+- Brave (brave.go): API REST oficial (free tier 2000 queries/mês)
+  - Header X-Subscription-Token para autenticação
+  - Requer BRAVE_API_KEY no environment
+
+### 4. Engine/Aggregator (engine/engine.go)
+- Busca paralela: goroutines para cada provider com sync.WaitGroup
+- Timeout global configurável (default 5s)
+- Deduplicação por URL normalizada (lowercase host, sem trailing slash, sem fragment)
+- Merge ranking: score baseado em posição + bonus de +10 para resultados em múltiplos buscadores
+- Mantém o snippet mais longo quando há duplicatas
+
+### 5. Config (config/config.go)
+- Carrega de variáveis de ambiente:
+  - BRAVE_API_KEY, SEARCHENG_PORT (8080), SEARCHENG_TIMEOUT (5s), SEARCHENG_MAX_RESULTS (20)
+
+### 6. CLI (main.go)
+- Subcomando "search": busca e exibe resultados formatados no terminal
+  - Flags: --providers=, --max-results=
+- Subcomando "serve": inicia servidor REST
+  - Flags: --port=, --providers=
+
+### 7. API REST (api/server.go)
+- GET /search?q=query&page=1 → JSON com resultados
+- GET /health → {"status":"ok"}
+- Sem autenticação (uso local)
+
+## Arquivos criados
+- main.go (CLI com subcomandos)
+- engine/result.go (tipos)
+- engine/provider.go (interface)
+- engine/duckduckgo.go (provider DDG)
+- engine/google.go (provider Google)
+- engine/bing.go (provider Bing)
+- engine/brave.go (provider Brave)
+- engine/engine.go (aggregator)
+- api/server.go (servidor HTTP)
+- config/config.go (configuração)
+- go.mod, go.sum
+- .gitignore
+
+## Verificação
+- go build compila sem erros → binário "searcheng" (9.3MB)
+- ./searcheng search "golang tutorial" --providers=ddg → retorna resultados reais do DuckDuckGo
+- ./searcheng serve --port=8081 → servidor inicia corretamente
+- curl localhost:8081/health → {"status":"ok"}
+- curl localhost:8081/search?q=test → JSON com resultados
+
+## Como usar
+  ./searcheng search "sua query"                    # busca no terminal
+  ./searcheng search "query" --providers=ddg,bing   # providers específicos
+  ./searcheng serve                                  # API na porta 8080
+  ./searcheng serve --port=3000                      # API em porta custom
+  BRAVE_API_KEY=xxx ./searcheng search "query"       # com Brave API
+
+## Análise de qualidade do código (2026-03-05)
+
+### Pontos fortes
+- Arquitetura limpa: interface Provider bem definida, fácil adicionar novos buscadores
+- Busca paralela com goroutines e WaitGroup → bom desempenho
+- Deduplicação inteligente com normalização de URL
+- Timeout global protege contra providers lentos
+- Código Go idiomático, sem dependências desnecessárias
+
+### Melhorias sugeridas para qualidade de pesquisa
+
+1. **Anti-bloqueio / Resiliência**
+   - Rotação de User-Agent: DDG e Bing usam UA fixo, só Google rotaciona → aplicar a todos
+   - Pool de proxies: rodar requests por SOCKS5/HTTP proxies para evitar rate-limiting
+   - Retry com backoff exponencial: se status 429/503, esperar e tentar novamente
+   - Headers realistas: Accept, Accept-Encoding, Referer, DNT para parecer browser real
+   - Cookie jar: manter cookies entre requests para sessões mais naturais
+   - Rate limiting interno: limitar queries/minuto por provider
+
+2. **Qualidade do ranking**
+   - Ranking atual é simples (posição + bonus multi-source)
+   - Melhorias possíveis:
+     - TF-IDF ou BM25 entre query e snippet para relevância textual
+     - Boost por domínio confiável (wikipedia, docs oficiais, etc.)
+     - Penalizar resultados sem snippet
+     - Considerar freshness (data do resultado quando disponível)
+     - Normalização de scores entre providers (cada um retorna em ordem diferente)
+
+3. **Algoritmo genético para auto-otimização (ideia avançada)**
+   - Cromossomo = pesos do ranking (peso_posição, peso_multi_source, peso_snippet_length, etc.)
+   - Fitness = click-through rate ou satisfação do usuário (precisa de feedback loop)
+   - Operações: crossover dos pesos, mutação aleatória, seleção por torneio
+   - Funcionaria assim:
+     a) Gerar população inicial de configurações de ranking
+     b) Para cada query, aplicar N configurações e medir qual ranking é "melhor"
+     c) Evoluir pesos ao longo do tempo
+   - Desafio: precisa de métrica de qualidade (ex: usuário clica no 1º resultado = bom)
+   - Alternativa mais simples: A/B testing dos pesos com logging de cliques
+
+4. **Mais providers**
+   - SearXNG (meta-search open source, muitas instâncias públicas)
+   - Mojeek (search engine independente com API)
+   - Yandex (bom para resultados internacionais)
+   - Qwant (europeu, boa privacidade)
+
+5. **Cache local**
+   - Cache de resultados por query+provider com TTL (ex: 1h)
+   - Reduz requests e melhora latência para queries repetidas
+   - Pode ser in-memory (map com mutex) ou SQLite/BoltDB
+
+6. **Scraping mais robusto**
+   - Google muda HTML frequentemente → ter fallback selectors
+   - Detectar CAPTCHAs e avisar o usuário
+   - Headless browser (chromedp/rod) como fallback para JavaScript-heavy pages
+
+## Pesquisa: Linguagens cross-platform e mercado de trabalho
+
+### Melhores linguagens cross-platform em 2026
+1. **Dart/Flutter** - Mobile + Web + Desktop, um codebase só. Hot reload. Google backing.
+2. **Kotlin Multiplatform** - Android nativo + iOS + Web. JetBrains backing. Interop com Java.
+3. **C#/.NET MAUI** - Windows + macOS + iOS + Android. Ecossistema Microsoft/Azure forte.
+4. **JavaScript/TypeScript + React Native** - Mobile cross-platform, enorme ecossistema.
+5. **Rust** - Systems programming, WebAssembly, CLI tools. Salários mais altos.
+
+### Salários e mercado
+
+#### EUA (2026)
+- AI Engineer: $90k-$250k/ano (entry → senior)
+- Rust Developer: $130k-$235k/ano
+- TypeScript/Full-stack: $130k-$316k/ano (remoto)
+- Python Developer: $98k-$188k/ano
+- Java Developer: ~$117k/ano (mid-level)
+
+#### Brasil (2026)
+- Software Engineer (São Paulo): ~R$17k-25k/mês (~$34k-50k/ano)
+- AI/ML Engineer: $54k-$100k/ano (mid-senior, empresas internacionais)
+- AI/ML com expertise em LLMs: premium de 46% sobre Python dev padrão
+- Tendência: salários de AI, cybersecurity e DevOps subindo 12-18% ao ano no LATAM
+
+### Recomendações para emprego
+1. **Python + AI/ML** - Maior demanda global. LLMs, fine-tuning, agentic workflows = premium salarial
+2. **TypeScript** - Full-stack, altíssima demanda, bom para trabalho remoto USA
+3. **Go** - Backend/infra/cloud. Você já está usando! Boa demanda em DevOps/SRE
+4. **Rust** - Salários mais altos, menos concorrência, mas mercado menor
+5. **Kotlin** - Android + backend, forte demanda no Brasil
+
+### Estratégia sugerida
+- Focar em Python + AI/ML para cargo de AI Engineer (maior ROI salarial)
+- Manter Go como skill de backend/infra (diferencial)
+- Considerar trabalho remoto para empresas americanas (3-5x salário BR)
+- Portfolio: este searcheng + projetos com LLMs/agents = perfil forte
