@@ -2,15 +2,11 @@
 
 **A meta-search engine that combines results from multiple search providers into one ranked feed.**
 
-**Um meta-buscador que combina resultados de varios provedores de busca em um unico feed ranqueado.**
-
 SearchEng queries DuckDuckGo, Google, Bing, and Brave in parallel, deduplicates results, ranks them using information retrieval algorithms (RRF + BM25F), and extracts featured answers and factual claims.
-
-*SearchEng consulta DuckDuckGo, Google, Bing e Brave em paralelo, deduplica resultados, ranqueia usando algoritmos de recuperacao de informacao (RRF + BM25F) e extrai respostas e fatos verificados.*
 
 You can use it as a **CLI tool**, a **REST API with web UI**, or an **MCP server for AI agents**.
 
-*Voce pode usar como **ferramenta CLI**, **API REST com interface web**, ou **servidor MCP para agentes de IA**.*
+> **Leia em Portugues:** [Clique aqui para a versao em PT-BR](#portugues)
 
 ```
 $ searcheng search "how does garbage collection work in Go"
@@ -41,62 +37,60 @@ Found 18 results in 1.2s
 
 ---
 
-## Table of Contents / Indice
+## Table of Contents
 
-- [Why SearchEng? / Por que SearchEng?](#why-searcheng--por-que-searcheng)
-- [Getting Started / Comecando](#getting-started--comecando)
-- [Usage / Uso](#usage--uso)
-  - [CLI Search / Busca por CLI](#cli-search--busca-por-cli)
-  - [Web UI & REST API / Interface Web e API REST](#web-ui--rest-api--interface-web-e-api-rest)
-  - [MCP Server (AI Agents) / Servidor MCP (Agentes de IA)](#mcp-server-ai-agents--servidor-mcp-agentes-de-ia)
-- [API Reference / Referencia da API](#api-reference--referencia-da-api)
+- [Why SearchEng?](#why-searcheng)
+- [Getting Started](#getting-started)
+- [Usage](#usage)
+  - [CLI Search](#cli-search)
+  - [Web UI & REST API](#web-ui--rest-api)
+  - [MCP Server (AI Agents)](#mcp-server-ai-agents)
+- [API Reference](#api-reference)
   - [GET /search](#get-search)
   - [GET /v1/search (RAG)](#get-v1search-rag)
   - [GET /health](#get-health)
-- [Configuration / Configuracao](#configuration--configuracao)
-- [How It Works / Como Funciona](#how-it-works--como-funciona)
+- [Configuration](#configuration)
+- [How It Works](#how-it-works)
   - [Search & Ranking Pipeline](#search--ranking-pipeline)
-  - [Answer Extraction / Extracao de Respostas](#answer-extraction--extracao-de-respostas)
-  - [Claim Extraction / Extracao de Fatos](#claim-extraction--extracao-de-fatos)
-  - [Anti-Blocking / Anti-Bloqueio](#anti-blocking--anti-bloqueio)
-- [Architecture / Arquitetura](#architecture--arquitetura)
-- [Development / Desenvolvimento](#development--desenvolvimento)
-- [License / Licenca](#license--licenca)
+  - [Answer Extraction](#answer-extraction)
+  - [Claim Extraction](#claim-extraction)
+  - [Anti-Blocking](#anti-blocking)
+- [Architecture](#architecture)
+- [Development](#development)
+- [License](#license)
+- [Portugues](#portugues)
 
 ---
 
-## Why SearchEng? / Por que SearchEng?
+## Why SearchEng?
 
 Most search APIs are expensive, rate-limited, or require API keys. SearchEng scrapes free search engines directly and combines results into a single ranked feed.
 
-*A maioria das APIs de busca sao caras, tem rate limit, ou exigem chaves de API. O SearchEng faz scraping direto dos buscadores gratuitos e combina os resultados em um unico feed ranqueado.*
-
-| Use Case / Caso de Uso | How It Helps / Como Ajuda |
+| Use Case | How SearchEng Helps |
 |---|---|
-| **RAG pipelines** | `/v1/search` returns a pre-formatted `context_block` ready to inject into LLM prompts. / Retorna um `context_block` pronto para injetar em prompts de LLMs. |
-| **AI agents / Agentes de IA** | MCP server lets Claude, GPT, or any MCP-compatible agent search the web. / Servidor MCP permite que Claude, GPT ou qualquer agente MCP busque na web. |
-| **Research / Pesquisa** | Cross-reference results across engines with trust signals and claim corroboration. / Cruza resultados entre buscadores com sinais de confianca e corroboracao de fatos. |
-| **Self-hosted search / Busca local** | No API keys required (Brave is optional). / Sem chaves de API (Brave e opcional). |
+| **RAG pipelines** | `/v1/search` returns a pre-formatted `context_block` ready to inject into LLM prompts |
+| **AI agents** | MCP server lets Claude, GPT, or any MCP-compatible agent search the web |
+| **Research** | Cross-reference results across engines with trust signals and claim corroboration |
+| **Self-hosted search** | No API keys required (Brave is optional for higher quality) |
 
 ---
 
-## Getting Started / Comecando
+## Getting Started
 
-### Requirements / Requisitos
+### Requirements
 
-- **Go 1.24+** ([install Go / instalar Go](https://go.dev/dl/))
-- No API keys required. Brave Search API is optional.
-- *Nenhuma chave de API obrigatoria. Brave Search API e opcional.*
+- **Go 1.24+** ([install Go](https://go.dev/dl/))
+- No API keys required (Brave Search API is optional)
 
-### Installation / Instalacao
+### Installation
 
-**Option 1 / Opcao 1: `go install`**
+**Option 1: `go install`**
 
 ```bash
 go install github.com/KaioH3/SearchEng@latest
 ```
 
-**Option 2 / Opcao 2: Build from source / Compilar do codigo-fonte**
+**Option 2: Build from source**
 
 ```bash
 git clone https://github.com/KaioH3/SearchEng.git
@@ -104,91 +98,83 @@ cd SearchEng
 go build -o searcheng .
 ```
 
-**Verify the installation / Verificar a instalacao:**
+Verify the installation:
 
 ```bash
 ./searcheng search "hello world"
 ```
 
-### Quick Start / Inicio Rapido
+### Quick Start
 
 ```bash
-# Search from the terminal / Buscar pelo terminal
+# Search from the terminal
 ./searcheng search "what is WebAssembly"
 
-# Start the web UI + API server / Iniciar a interface web + servidor API
+# Start the web UI + API server
 ./searcheng serve
-# Open / Abrir http://localhost:8080
+# Open http://localhost:8080 in your browser
 
-# Start the MCP server for AI agents / Iniciar servidor MCP para agentes de IA
+# Start the MCP server for AI agents
 ./searcheng mcp
 ```
 
 ---
 
-## Usage / Uso
+## Usage
 
-### CLI Search / Busca por CLI
+### CLI Search
 
 ```bash
-# Basic search / Busca basica
+# Basic search
 searcheng search "golang concurrency patterns"
 
-# Choose specific providers / Escolher provedores especificos
+# Choose specific providers
 searcheng search "rust vs go" --providers=ddg,brave
 
-# Limit number of results / Limitar numero de resultados
+# Limit number of results
 searcheng search "latest news" --max-results=5
 
-# Disable result caching / Desabilitar cache de resultados
+# Disable result caching
 searcheng search "breaking news" --no-cache
 
-# Disable SafeSearch (NSFW filter) / Desabilitar SafeSearch (filtro NSFW)
+# Disable SafeSearch (NSFW filter)
 searcheng search "query" --safe-search=false
 ```
 
-**Available providers / Provedores disponiveis:** `ddg` (DuckDuckGo), `google`, `bing`, `brave` (requires API key / requer chave de API)
+**Available providers:** `ddg` (DuckDuckGo), `google`, `bing`, `brave` (requires API key)
 
-### Web UI & REST API / Interface Web e API REST
+### Web UI & REST API
 
 ```bash
 # Start with default settings (port 8080, all providers)
-# Iniciar com configuracoes padrao (porta 8080, todos os provedores)
 searcheng serve
 
 # Custom port and specific providers
-# Porta customizada e provedores especificos
 searcheng serve --port=3000 --providers=ddg,google,bing
 ```
 
-Open / Abra `http://localhost:8080` in your browser / no seu navegador.
+Open `http://localhost:8080` in your browser to use the web interface. It features:
 
-**Web UI features / Funcionalidades da interface web:**
+- Search bar with suggested queries
+- Featured answer box
+- Result cards with favicons, source badges, and trust indicators
+- Factual claims with confidence bars
+- SafeSearch toggle
+- Dark/light mode (automatic, follows your OS setting)
+- Responsive design (works on mobile)
+- Provider status in the footer
 
-- Search bar with suggested queries / Barra de busca com sugestoes
-- Featured answer box / Caixa de resposta destacada
-- Result cards with favicons, source badges, and trust indicators / Cards de resultado com favicons, badges de fonte e indicadores de confianca
-- Factual claims with confidence bars / Fatos verificados com barras de confianca
-- SafeSearch toggle / Alternador de SafeSearch
-- Dark/light mode (automatic, follows OS setting) / Modo escuro/claro (automatico, segue o sistema)
-- Responsive design (works on mobile) / Design responsivo (funciona no celular)
-- Provider status in the footer / Status dos provedores no rodape
+The same server also serves the JSON API. See [API Reference](#api-reference) for details.
 
-The same server also serves the JSON API. See [API Reference](#api-reference--referencia-da-api).
-
-*O mesmo servidor tambem serve a API JSON. Veja [Referencia da API](#api-reference--referencia-da-api).*
-
-### MCP Server (AI Agents) / Servidor MCP (Agentes de IA)
+### MCP Server (AI Agents)
 
 The MCP (Model Context Protocol) server lets AI agents search the web through SearchEng.
-
-*O servidor MCP (Model Context Protocol) permite que agentes de IA busquem na web atraves do SearchEng.*
 
 ```bash
 searcheng mcp
 ```
 
-**Claude Desktop** — add to / adicionar em `claude_desktop_config.json`:
+**Claude Desktop** — add to `claude_desktop_config.json`:
 
 ```json
 {
@@ -201,7 +187,7 @@ searcheng mcp
 }
 ```
 
-**Claude Code** — add to / adicionar em `.mcp.json` in your project / no seu projeto:
+**Claude Code** — add to `.mcp.json` in your project:
 
 ```json
 {
@@ -214,50 +200,46 @@ searcheng mcp
 }
 ```
 
-**MCP `search` tool parameters / Parametros da tool `search` do MCP:**
+The MCP server exposes a `search` tool with parameters:
 
-| Parameter / Parametro | Type / Tipo | Required / Obrigatorio | Default / Padrao | Description / Descricao |
+| Parameter | Type | Required | Default | Description |
 |---|---|---|---|---|
-| `query` | string | Yes / Sim | — | Search query / Consulta de busca |
-| `max_results` | number | No / Nao | `5` | Max results / Maximo de resultados |
-| `safe_search` | boolean | No / Nao | `true` | NSFW filter / Filtro NSFW |
+| `query` | string | Yes | — | Search query |
+| `max_results` | number | No | `5` | Maximum results to return |
+| `safe_search` | boolean | No | `true` | Enable/disable NSFW filter |
 
 ---
 
-## API Reference / Referencia da API
+## API Reference
 
 ### Endpoints
 
-| Method / Metodo | Path / Caminho | Description / Descricao |
+| Method | Path | Description |
 |---|---|---|
-| `GET` | `/` | Web UI (browsers) or API info (JSON clients) / Interface web (navegadores) ou info da API (clientes JSON) |
-| `GET` | `/search?q=...` | Standard search / Busca padrao |
-| `GET` | `/v1/search?q=...` | RAG-optimized search / Busca otimizada para RAG |
-| `GET` | `/health` | Provider health check / Status dos provedores |
+| `GET` | `/` | Web UI (browsers) or API info (JSON clients) |
+| `GET` | `/search?q=...` | Standard search with ranked results |
+| `GET` | `/v1/search?q=...` | RAG-optimized search with answer, claims, and trust signals |
+| `GET` | `/health` | Provider health check |
 
-The root `/` serves the web UI to browsers and JSON to API clients (based on the `Accept` header).
-
-*A raiz `/` serve a interface web para navegadores e JSON para clientes de API (baseado no header `Accept`).*
+The root `/` serves the web UI to browsers and returns JSON to API clients (based on the `Accept` header). To get JSON:
 
 ```bash
-# Get JSON from / (instead of the web UI)
-# Obter JSON da / (ao inves da interface web)
 curl -H "Accept: application/json" http://localhost:8080/
 ```
 
 ### GET /search
 
-Standard search. Returns ranked results. / Busca padrao. Retorna resultados ranqueados.
+Standard search endpoint. Returns ranked results.
 
-**Parameters / Parametros:**
+**Parameters:**
 
-| Parameter | Type | Default | Description / Descricao |
+| Parameter | Type | Default | Description |
 |---|---|---|---|
-| `q` | string | *required / obrigatorio* | Search query / Consulta |
-| `page` | integer | `1` | Page number / Numero da pagina |
-| `safe_search` | string | `true` | `false` or `0` to disable / para desabilitar |
+| `q` | string | *required* | Search query |
+| `page` | integer | `1` | Page number |
+| `safe_search` | string | `true` | Set to `false` or `0` to disable |
 
-**Example / Exemplo:**
+**Example:**
 
 ```bash
 curl "http://localhost:8080/search?q=golang+error+handling&page=1"
@@ -287,19 +269,19 @@ curl "http://localhost:8080/search?q=golang+error+handling&page=1"
 
 ### GET /v1/search (RAG)
 
-RAG-optimized endpoint. Returns everything from `/search` plus: `answer`, `claims`, `trust_signals`, `context_block`, and `score`. This is the endpoint the web UI uses.
+RAG-optimized endpoint. Returns everything from `/search` plus: `answer`, `claims`, `trust_signals`, `context_block`, and relevance `score`.
 
-*Endpoint otimizado para RAG. Retorna tudo do `/search` mais: `answer`, `claims`, `trust_signals`, `context_block` e `score`. Este e o endpoint que a interface web usa.*
+This is the endpoint the web UI uses.
 
-**Parameters / Parametros:**
+**Parameters:**
 
-| Parameter | Type | Default | Description / Descricao |
+| Parameter | Type | Default | Description |
 |---|---|---|---|
-| `q` | string | *required / obrigatorio* | Search query / Consulta |
-| `max_results` | integer | `5` | Max results (cap: 100) / Maximo de resultados (limite: 100) |
-| `safe_search` | string | `true` | `false` or `0` to disable / para desabilitar |
+| `q` | string | *required* | Search query |
+| `max_results` | integer | `5` | Max results (capped at 100) |
+| `safe_search` | string | `true` | Set to `false` or `0` to disable |
 
-**Example / Exemplo:**
+**Example:**
 
 ```bash
 curl "http://localhost:8080/v1/search?q=golang+error+handling&max_results=3"
@@ -341,7 +323,7 @@ curl "http://localhost:8080/v1/search?q=golang+error+handling&max_results=3"
 }
 ```
 
-**Using `context_block` in a RAG prompt / Usando `context_block` em um prompt RAG:**
+**Using `context_block` in a RAG prompt:**
 
 ```
 Based on the following search results, answer the user's question.
@@ -353,7 +335,7 @@ Question: {user's question}
 
 ### GET /health
 
-Returns the status of all configured providers. / Retorna o status de todos os provedores configurados.
+Returns the status of all configured providers.
 
 ```bash
 curl http://localhost:8080/health
@@ -373,75 +355,70 @@ curl http://localhost:8080/health
 
 ---
 
-## Configuration / Configuracao
+## Configuration
 
 All configuration is done via environment variables. No config files needed.
 
-*Toda configuracao e feita via variaveis de ambiente. Sem arquivos de configuracao.*
+**Core settings:**
 
-### Core Settings / Configuracoes Principais
+| Variable | Default | Description |
+|---|---|---|
+| `SEARCHENG_PORT` | `8080` | Server port for `serve` command |
+| `SEARCHENG_TIMEOUT` | `5s` | Timeout per search request |
+| `SEARCHENG_MAX_RESULTS` | `20` | Maximum results returned |
+| `SEARCHENG_CACHE_TTL` | `1h` | How long results are cached (`0` to disable) |
+| `SEARCHENG_SAFE_SEARCH` | `true` | NSFW content filtering |
 
-| Variable / Variavel | Default / Padrao | EN | PT-BR |
-|---|---|---|---|
-| `SEARCHENG_PORT` | `8080` | Server port | Porta do servidor |
-| `SEARCHENG_TIMEOUT` | `5s` | Timeout per search | Timeout por busca |
-| `SEARCHENG_MAX_RESULTS` | `20` | Max results returned | Maximo de resultados |
-| `SEARCHENG_CACHE_TTL` | `1h` | Cache duration (`0` to disable) | Duracao do cache (`0` para desabilitar) |
-| `SEARCHENG_SAFE_SEARCH` | `true` | NSFW content filter | Filtro de conteudo NSFW |
+**API keys:**
 
-### API Keys / Chaves de API
+| Variable | Default | Description |
+|---|---|---|
+| `BRAVE_API_KEY` | — | Brave Search API key ([free tier: 2000 queries/month](https://brave.com/search/api/)) |
 
-| Variable / Variavel | Default / Padrao | EN | PT-BR |
-|---|---|---|---|
-| `BRAVE_API_KEY` | — | Brave Search API key ([free: 2000 queries/month](https://brave.com/search/api/)) | Chave da API Brave Search ([gratis: 2000 consultas/mes](https://brave.com/search/api/)) |
+**Anti-blocking:**
 
-### Anti-Blocking / Anti-Bloqueio
+| Variable | Default | Description |
+|---|---|---|
+| `SEARCHENG_MAX_RETRIES` | `2` | Max retries on 429/5xx errors |
+| `SEARCHENG_RETRY_DELAY` | `500ms` | Base delay for exponential backoff |
+| `SEARCHENG_GOOGLE_RPM` | `1` | Google: max requests per minute |
+| `SEARCHENG_DDG_RPM` | `10` | DuckDuckGo: max requests per minute |
+| `SEARCHENG_BING_RPM` | `10` | Bing: max requests per minute |
 
-| Variable / Variavel | Default / Padrao | EN | PT-BR |
-|---|---|---|---|
-| `SEARCHENG_MAX_RETRIES` | `2` | Max retries on 429/5xx | Tentativas em 429/5xx |
-| `SEARCHENG_RETRY_DELAY` | `500ms` | Base delay for backoff | Delay base para backoff |
-| `SEARCHENG_GOOGLE_RPM` | `1` | Google: requests/minute | Google: requisicoes/minuto |
-| `SEARCHENG_DDG_RPM` | `10` | DuckDuckGo: requests/minute | DuckDuckGo: requisicoes/minuto |
-| `SEARCHENG_BING_RPM` | `10` | Bing: requests/minute | Bing: requisicoes/minuto |
-
-### Ranking Weights / Pesos de Ranqueamento
+**Ranking weights:**
 
 Fine-tune how results are scored. Higher values = more influence on final ranking.
 
-*Ajuste fino de como resultados sao pontuados. Valores maiores = mais influencia no ranking final.*
-
-| Variable / Variavel | Default / Padrao | EN | PT-BR |
-|---|---|---|---|
-| `SEARCHENG_RANK_POSITION_W` | `0.4` | Weight for RRF position score | Peso para score de posicao RRF |
-| `SEARCHENG_RANK_BM25_W` | `0.3` | Weight for BM25F text relevance | Peso para relevancia textual BM25F |
-| `SEARCHENG_RANK_MULTISOURCE_W` | `0.2` | Bonus for multi-engine results | Bonus para resultados em multiplos buscadores |
-| `SEARCHENG_RANK_SNIPPET_W` | `0.1` | Weight for snippet quality | Peso para qualidade do snippet |
-| `SEARCHENG_RANK_TRUSTED_DOMAIN_BONUS` | `0.5` | Bonus for trusted domains | Bonus para dominios confiaveis |
-| `SEARCHENG_RANK_TLD_W` | `0.3` | Weight for TLD category | Peso para categoria do TLD |
-| `SEARCHENG_RANK_HTTPS_BONUS` | `0.1` | Bonus for HTTPS | Bonus para HTTPS |
+| Variable | Default | Description |
+|---|---|---|
+| `SEARCHENG_RANK_POSITION_W` | `0.4` | Weight for position-based RRF score |
+| `SEARCHENG_RANK_BM25_W` | `0.3` | Weight for BM25F text relevance |
+| `SEARCHENG_RANK_MULTISOURCE_W` | `0.2` | Bonus for results found in multiple engines |
+| `SEARCHENG_RANK_SNIPPET_W` | `0.1` | Weight for snippet quality |
+| `SEARCHENG_RANK_TRUSTED_DOMAIN_BONUS` | `0.5` | Bonus for trusted domains (GitHub, Wikipedia, etc.) |
+| `SEARCHENG_RANK_TLD_W` | `0.3` | Weight for TLD category score |
+| `SEARCHENG_RANK_HTTPS_BONUS` | `0.1` | Bonus for HTTPS results |
 
 ---
 
-## How It Works / Como Funciona
+## How It Works
 
 ### Search & Ranking Pipeline
 
-When you make a search, here's what happens: / Quando voce faz uma busca, eis o que acontece:
+When you make a search, here's what happens:
 
 ```
- 1. Query received / Consulta recebida
+ 1. Query received
         |
- 2. Check cache / Verificar cache --> hit? return cached / retornar do cache
+ 2. Check cache --> hit? return cached results
         | (miss)
  3. Fan out to all providers in parallel (goroutines)
-    Dispara para todos os provedores em paralelo (goroutines)
         |
- 4. Collect results with timeout / Coletar resultados com timeout
+ 4. Collect results (with timeout)
         |
- 5. Deduplicate by URL, merge sources / Deduplicar por URL, unir fontes
+ 5. Deduplicate by URL (merge sources)
         |
- 6. Score each result / Pontuar cada resultado:
+ 6. Score each result:
         |   |-- RRF: Reciprocal Rank Fusion across providers
         |   |-- BM25F: text relevance (title 3x, URL 2x, snippet 1x)
         |   |-- Multi-source bonus (found in 2+ engines)
@@ -449,16 +426,16 @@ When you make a search, here's what happens: / Quando voce faz uma busca, eis o 
         |   |-- Language penalty (CJK mismatch: -3.0)
         |   +-- Coverage penalty (<15% query terms: -2.0)
         |
- 7. Sort by score, discard negatives / Ordenar por score, descartar negativos
+ 7. Sort by score, discard negatives
         |
- 8. Extract answer / Extrair resposta destacada
+ 8. Extract answer (best snippet sentence)
         |
- 9. Extract claims / Extrair fatos verificaveis
+ 9. Extract claims (cross-source corroboration)
         |
-10. Cache results, return response / Cachear resultados, retornar resposta
+10. Cache results, return response
 ```
 
-**Scoring formula / Formula de pontuacao:**
+**Scoring formula:**
 
 ```
 score = PositionW    * RRF * 100
@@ -472,49 +449,43 @@ score = PositionW    * RRF * 100
       + coveragePenalty    (low query coverage: -2.0)
 ```
 
-### Answer Extraction / Extracao de Respostas
+### Answer Extraction
 
 SearchEng picks the best sentence from the top results as a "featured answer":
 
-*SearchEng escolhe a melhor frase dos resultados principais como "resposta destacada":*
+1. Split top snippets into sentences
+2. Score each sentence by: query term overlap, presence of a definition pattern ("is a", "refers to"), length, and source trust
+3. The highest-scoring sentence above a threshold becomes the featured answer
+4. SafeSearch filters out NSFW content from answers
 
-1. Split top snippets into sentences / Divide os snippets em frases
-2. Score each sentence by: query term overlap, definition patterns ("is a", "refers to"), length, source trust / Pontua cada frase por: sobreposicao com termos da consulta, padroes de definicao, tamanho, confianca da fonte
-3. Highest-scoring sentence above threshold becomes the answer / A frase com maior pontuacao acima do limiar vira a resposta
-4. SafeSearch filters out NSFW content / SafeSearch filtra conteudo NSFW
-
-### Claim Extraction / Extracao de Fatos
+### Claim Extraction
 
 Factual claims are statements that can be verified. SearchEng extracts them automatically:
 
-*Fatos verificaveis sao afirmacoes que podem ser confirmadas. SearchEng os extrai automaticamente:*
+1. Identify sentences containing numbers, dates, comparisons, or attribution ("according to...")
+2. Group similar claims across sources using Jaccard similarity (threshold > 0.4)
+3. Calculate confidence based on: corroboration count, trusted source bonus, and claim strength
+4. Claims found in multiple independent sources get higher confidence
 
-1. Identify sentences with numbers, dates, comparisons, or attributions ("according to...") / Identifica frases com numeros, datas, comparacoes ou atribuicoes ("segundo...")
-2. Group similar claims across sources using Jaccard similarity (threshold > 0.4) / Agrupa fatos similares entre fontes usando similaridade de Jaccard (limiar > 0.4)
-3. Calculate confidence: corroboration count + trusted source bonus + claim strength / Calcula confianca: quantidade de corroboracao + bonus de fonte confiavel + forca do fato
-4. Claims in multiple independent sources get higher confidence / Fatos em multiplas fontes independentes recebem confianca maior
+### Anti-Blocking
 
-### Anti-Blocking / Anti-Bloqueio
+Scraping search engines requires careful request management. SearchEng uses multiple layers:
 
-Scraping search engines requires careful request management. / Fazer scraping de buscadores requer gerenciamento cuidadoso de requisicoes.
+| Layer | What It Does |
+|---|---|
+| **Rate limiting** | Per-provider rate limiter (Google: 1 req/min, DDG/Bing: 10 req/min) |
+| **Jittered delays** | Random 0.5-2s delay before each request to look natural |
+| **Exponential backoff** | Automatic retry on 429/5xx with increasing wait times |
+| **Browser mimicry** | Rotating User-Agent strings with matching `Sec-CH-UA` and `Sec-Fetch-*` headers |
+| **Cookie jars** | Per-provider cookie persistence (maintains session context) |
+| **CAPTCHA detection** | Google: detects `/sorry/` redirects and CAPTCHA pages, triggers 5-min cooldown |
+| **Consent bypass** | Google: sends consent cookies to skip EU consent wall |
 
-| Layer / Camada | EN | PT-BR |
-|---|---|---|
-| **Rate limiting** | Per-provider limiter (Google: 1 req/min, DDG/Bing: 10 req/min) | Limitador por provedor (Google: 1 req/min, DDG/Bing: 10 req/min) |
-| **Jittered delays** | Random 0.5-2s delay before each request | Delay aleatorio de 0.5-2s antes de cada requisicao |
-| **Exponential backoff** | Auto retry on 429/5xx with increasing wait | Retry automatico em 429/5xx com espera crescente |
-| **Browser mimicry** | Rotating User-Agent with matching `Sec-CH-UA` headers | User-Agent rotativo com headers `Sec-CH-UA` correspondentes |
-| **Cookie jars** | Per-provider cookie persistence | Persistencia de cookies por provedor |
-| **CAPTCHA detection** | Google: detects `/sorry/` redirects, 5-min cooldown | Google: detecta redirects `/sorry/`, cooldown de 5 min |
-| **Consent bypass** | Google: sends consent cookies to skip EU wall | Google: envia cookies de consentimento para pular tela da UE |
-
-Google is the most aggressive at blocking, so it uses 1 RPM and no automatic retries.
-
-*Google e o mais agressivo em bloquear, entao usa 1 RPM e sem retries automaticos.*
+Google is the most aggressive at blocking, so it uses a stricter rate limit (1 RPM) and no automatic retries.
 
 ---
 
-## Architecture / Arquitetura
+## Architecture
 
 ```
                       +---------------------+
@@ -549,62 +520,591 @@ Google is the most aggressive at blocking, so it uses 1 RPM and no automatic ret
                 +------+ +------+ +----+ +-----+
 ```
 
-### Project Structure / Estrutura do Projeto
+**Project structure:**
 
 ```
 SearchEng/
-|-- main.go                 Entry point / Ponto de entrada
+|-- main.go                 Entry point: CLI, serve, and MCP commands
 |-- web/
-|   +-- index.html          Web UI (Alpine.js + Pico CSS via go:embed)
+|   +-- index.html          Web UI (Alpine.js + Pico CSS, served via go:embed)
 |-- api/
-|   |-- server.go           REST API (CORS, content negotiation)
-|   +-- server_test.go
+|   |-- server.go           REST API server with CORS and content negotiation
+|   +-- server_test.go      API tests
 |-- engine/
-|   |-- engine.go           Search aggregator / Agregador de busca (RRF + BM25F)
-|   |-- provider.go         Provider interface / Interface de provedor
-|   |-- result.go           Result, Claim, TrustSignals types / Tipos
-|   |-- duckduckgo.go       DuckDuckGo scraper
-|   |-- google.go           Google scraper (CAPTCHA detection + cooldown)
-|   |-- bing.go             Bing scraper (tracking URL decoder)
-|   |-- brave.go            Brave Search API client / Cliente API Brave
-|   |-- answer.go           Answer extraction / Extracao de respostas
-|   |-- claims.go           Claim extraction / Extracao de fatos
-|   |-- cache.go            In-memory cache with TTL / Cache em memoria com TTL
-|   |-- stopwords.go        EN + PT-BR stopword lists / Listas de stopwords
-|   |-- httpclient.go       HTTP transports (retry, rate-limit, jitter)
-|   +-- *_test.go           Tests / Testes
+|   |-- engine.go           Search aggregator (parallel query, RRF + BM25F ranking)
+|   |-- provider.go         Provider interface
+|   |-- result.go           Result, Claim, TrustSignals types
+|   |-- duckduckgo.go       DuckDuckGo HTML scraper
+|   |-- google.go           Google HTML scraper (CAPTCHA detection + cooldown)
+|   |-- bing.go             Bing HTML scraper (tracking URL decoder)
+|   |-- brave.go            Brave Search API client
+|   |-- answer.go           Featured answer extraction
+|   |-- claims.go           Factual claim extraction + corroboration
+|   |-- cache.go            Thread-safe in-memory cache with TTL
+|   |-- stopwords.go        English + Portuguese stopword lists
+|   |-- httpclient.go       HTTP transports (retry, rate-limit, jitter, browser headers)
+|   +-- *_test.go           Tests for each component
 |-- mcp/
 |   |-- server.go           MCP server (JSON-RPC 2.0 over stdio)
-|   +-- server_test.go
+|   +-- server_test.go      MCP tests
 +-- config/
-    +-- config.go           Environment config / Configuracao por variaveis de ambiente
+    +-- config.go           Environment-based configuration
 ```
 
 ---
 
-## Development / Desenvolvimento
+## Development
 
 ```bash
-# Run all tests with race detector / Rodar todos os testes com detector de race condition
+# Run all tests (with race detector)
 go test ./... -race -count=1
 
-# Verbose / Verboso
+# Run tests with verbose output
 go test ./... -race -v
 
-# Build / Compilar
+# Build the binary
 go build -o searcheng .
 
-# Static analysis / Analise estatica
+# Run static analysis
 go vet ./...
 
-# Run in development / Rodar em desenvolvimento
+# Run the server in development
 go run . serve
 ```
 
-**Tests / Testes:** 183 tests across 4 packages, all passing with `-race`. / 183 testes em 4 pacotes, todos passando com `-race`.
+**Test coverage:** 183 tests across 4 packages, all passing with `-race`.
 
 ---
 
-## License / Licenca
+## License
+
+[MIT](LICENSE)
+
+---
+
+---
+
+<a id="portugues"></a>
+
+# SearchEng (Portugues)
+
+**Um meta-buscador que combina resultados de varios provedores de busca em um unico feed ranqueado.**
+
+O SearchEng consulta DuckDuckGo, Google, Bing e Brave em paralelo, deduplica resultados, ranqueia usando algoritmos de recuperacao de informacao (RRF + BM25F) e extrai respostas destacadas e fatos verificaveis.
+
+Voce pode usar como **ferramenta CLI**, **API REST com interface web**, ou **servidor MCP para agentes de IA**.
+
+> **Read in English:** [Click here for the English version](#searcheng)
+
+```
+$ searcheng search "como funciona garbage collection em Go"
+
+Searching for: como funciona garbage collection em Go
+Providers: 3 active
+────────────────────────────────────────────────────────────
+  DuckDuckGo: 12 results
+  Bing: 10 results
+  Google: 8 results
+────────────────────────────────────────────────────────────
+
+💡 Go usa um garbage collector concorrente tri-color mark-and-sweep que roda
+   ao lado das goroutines com pause times abaixo de 1ms.
+────────────────────────────────────────────────────────────
+
+1. A Guide to the Go Garbage Collector
+   https://go.dev/doc/gc-guide
+   Go's garbage collector is a non-generational concurrent collector...
+   Score: 4.82 | Sources: DuckDuckGo, Google, Bing
+
+Found 18 results in 1.2s
+```
+
+---
+
+## Indice
+
+- [Por que SearchEng?](#por-que-searcheng)
+- [Comecando](#comecando)
+- [Uso](#uso)
+  - [Busca por CLI](#busca-por-cli)
+  - [Interface Web e API REST](#interface-web-e-api-rest)
+  - [Servidor MCP (Agentes de IA)](#servidor-mcp-agentes-de-ia)
+- [Referencia da API](#referencia-da-api)
+  - [GET /search](#get-search-1)
+  - [GET /v1/search (RAG)](#get-v1search-rag-1)
+  - [GET /health](#get-health-1)
+- [Configuracao](#configuracao)
+- [Como Funciona](#como-funciona)
+  - [Pipeline de Busca e Ranqueamento](#pipeline-de-busca-e-ranqueamento)
+  - [Extracao de Respostas](#extracao-de-respostas)
+  - [Extracao de Fatos](#extracao-de-fatos)
+  - [Anti-Bloqueio](#anti-bloqueio)
+- [Arquitetura](#arquitetura)
+- [Desenvolvimento](#desenvolvimento)
+- [Licenca](#licenca)
+
+---
+
+## Por que SearchEng?
+
+A maioria das APIs de busca sao caras, tem rate limit, ou exigem chaves de API. O SearchEng faz scraping direto dos buscadores gratuitos e combina os resultados em um unico feed ranqueado.
+
+| Caso de Uso | Como o SearchEng Ajuda |
+|---|---|
+| **Pipelines RAG** | `/v1/search` retorna um `context_block` pre-formatado, pronto para injetar em prompts de LLMs |
+| **Agentes de IA** | Servidor MCP permite que Claude, GPT ou qualquer agente compativel busque na web |
+| **Pesquisa** | Cruza resultados entre buscadores com sinais de confianca e corroboracao de fatos |
+| **Busca local** | Sem chaves de API obrigatorias (Brave e opcional para mais qualidade) |
+
+---
+
+## Comecando
+
+### Requisitos
+
+- **Go 1.24+** ([instalar Go](https://go.dev/dl/))
+- Nenhuma chave de API obrigatoria (Brave Search API e opcional)
+
+### Instalacao
+
+**Opcao 1: `go install`**
+
+```bash
+go install github.com/KaioH3/SearchEng@latest
+```
+
+**Opcao 2: Compilar do codigo-fonte**
+
+```bash
+git clone https://github.com/KaioH3/SearchEng.git
+cd SearchEng
+go build -o searcheng .
+```
+
+Verificar a instalacao:
+
+```bash
+./searcheng search "hello world"
+```
+
+### Inicio Rapido
+
+```bash
+# Buscar pelo terminal
+./searcheng search "what is WebAssembly"
+
+# Iniciar a interface web + servidor API
+./searcheng serve
+# Abrir http://localhost:8080 no navegador
+
+# Iniciar servidor MCP para agentes de IA
+./searcheng mcp
+```
+
+---
+
+## Uso
+
+### Busca por CLI
+
+```bash
+# Busca basica
+searcheng search "golang concurrency patterns"
+
+# Escolher provedores especificos
+searcheng search "rust vs go" --providers=ddg,brave
+
+# Limitar numero de resultados
+searcheng search "latest news" --max-results=5
+
+# Desabilitar cache de resultados
+searcheng search "breaking news" --no-cache
+
+# Desabilitar SafeSearch (filtro NSFW)
+searcheng search "query" --safe-search=false
+```
+
+**Provedores disponiveis:** `ddg` (DuckDuckGo), `google`, `bing`, `brave` (requer chave de API)
+
+### Interface Web e API REST
+
+```bash
+# Iniciar com configuracoes padrao (porta 8080, todos os provedores)
+searcheng serve
+
+# Porta customizada e provedores especificos
+searcheng serve --port=3000 --providers=ddg,google,bing
+```
+
+Abra `http://localhost:8080` no seu navegador. A interface inclui:
+
+- Barra de busca com sugestoes de consulta
+- Caixa de resposta destacada
+- Cards de resultado com favicons, badges de fonte e indicadores de confianca
+- Fatos verificados com barras de confianca
+- Alternador de SafeSearch
+- Modo escuro/claro (automatico, segue o sistema operacional)
+- Design responsivo (funciona no celular)
+- Status dos provedores no rodape
+
+O mesmo servidor tambem serve a API JSON. Veja [Referencia da API](#referencia-da-api) para detalhes.
+
+### Servidor MCP (Agentes de IA)
+
+O servidor MCP (Model Context Protocol) permite que agentes de IA busquem na web atraves do SearchEng.
+
+```bash
+searcheng mcp
+```
+
+**Claude Desktop** — adicionar em `claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "searcheng": {
+      "command": "/caminho/para/searcheng",
+      "args": ["mcp"]
+    }
+  }
+}
+```
+
+**Claude Code** — adicionar em `.mcp.json` no seu projeto:
+
+```json
+{
+  "mcpServers": {
+    "searcheng": {
+      "command": "/caminho/para/searcheng",
+      "args": ["mcp"]
+    }
+  }
+}
+```
+
+Parametros da tool `search` do MCP:
+
+| Parametro | Tipo | Obrigatorio | Padrao | Descricao |
+|---|---|---|---|---|
+| `query` | string | Sim | — | Consulta de busca |
+| `max_results` | number | Nao | `5` | Maximo de resultados |
+| `safe_search` | boolean | Nao | `true` | Filtro NSFW |
+
+---
+
+## Referencia da API
+
+### Endpoints
+
+| Metodo | Caminho | Descricao |
+|---|---|---|
+| `GET` | `/` | Interface web (navegadores) ou info da API (clientes JSON) |
+| `GET` | `/search?q=...` | Busca padrao com resultados ranqueados |
+| `GET` | `/v1/search?q=...` | Busca otimizada para RAG com answer, claims e trust signals |
+| `GET` | `/health` | Status dos provedores |
+
+A raiz `/` serve a interface web para navegadores e JSON para clientes de API (baseado no header `Accept`). Para obter JSON:
+
+```bash
+curl -H "Accept: application/json" http://localhost:8080/
+```
+
+### GET /search
+
+Endpoint de busca padrao. Retorna resultados ranqueados.
+
+**Parametros:**
+
+| Parametro | Tipo | Padrao | Descricao |
+|---|---|---|---|
+| `q` | string | *obrigatorio* | Consulta de busca |
+| `page` | integer | `1` | Numero da pagina |
+| `safe_search` | string | `true` | `false` ou `0` para desabilitar |
+
+**Exemplo:**
+
+```bash
+curl "http://localhost:8080/search?q=golang+error+handling&page=1"
+```
+
+A resposta segue o mesmo formato JSON da [versao em ingles](#get-search).
+
+### GET /v1/search (RAG)
+
+Endpoint otimizado para RAG. Retorna tudo do `/search` mais: `answer`, `claims`, `trust_signals`, `context_block` e `score`.
+
+Este e o endpoint que a interface web usa.
+
+**Parametros:**
+
+| Parametro | Tipo | Padrao | Descricao |
+|---|---|---|---|
+| `q` | string | *obrigatorio* | Consulta de busca |
+| `max_results` | integer | `5` | Maximo de resultados (limite: 100) |
+| `safe_search` | string | `true` | `false` ou `0` para desabilitar |
+
+**Exemplo:**
+
+```bash
+curl "http://localhost:8080/v1/search?q=golang+error+handling&max_results=3"
+```
+
+A resposta segue o mesmo formato JSON da [versao em ingles](#get-v1search-rag).
+
+**Usando `context_block` em um prompt RAG:**
+
+```
+Com base nos seguintes resultados de busca, responda a pergunta do usuario.
+
+{context_block do /v1/search}
+
+Pergunta: {pergunta do usuario}
+```
+
+### GET /health
+
+Retorna o status de todos os provedores configurados.
+
+```bash
+curl http://localhost:8080/health
+```
+
+```json
+{
+  "status": "ok",
+  "providers": [
+    { "name": "DuckDuckGo", "available": true },
+    { "name": "Google", "available": true },
+    { "name": "Bing", "available": true },
+    { "name": "Brave", "available": true }
+  ]
+}
+```
+
+---
+
+## Configuracao
+
+Toda configuracao e feita via variaveis de ambiente. Sem arquivos de configuracao.
+
+**Configuracoes principais:**
+
+| Variavel | Padrao | Descricao |
+|---|---|---|
+| `SEARCHENG_PORT` | `8080` | Porta do servidor |
+| `SEARCHENG_TIMEOUT` | `5s` | Timeout por busca |
+| `SEARCHENG_MAX_RESULTS` | `20` | Maximo de resultados |
+| `SEARCHENG_CACHE_TTL` | `1h` | Duracao do cache (`0` para desabilitar) |
+| `SEARCHENG_SAFE_SEARCH` | `true` | Filtro de conteudo NSFW |
+
+**Chaves de API:**
+
+| Variavel | Padrao | Descricao |
+|---|---|---|
+| `BRAVE_API_KEY` | — | Chave da API Brave Search ([gratis: 2000 consultas/mes](https://brave.com/search/api/)) |
+
+**Anti-bloqueio:**
+
+| Variavel | Padrao | Descricao |
+|---|---|---|
+| `SEARCHENG_MAX_RETRIES` | `2` | Tentativas em erros 429/5xx |
+| `SEARCHENG_RETRY_DELAY` | `500ms` | Delay base para backoff exponencial |
+| `SEARCHENG_GOOGLE_RPM` | `1` | Google: requisicoes por minuto |
+| `SEARCHENG_DDG_RPM` | `10` | DuckDuckGo: requisicoes por minuto |
+| `SEARCHENG_BING_RPM` | `10` | Bing: requisicoes por minuto |
+
+**Pesos de ranqueamento:**
+
+Ajuste fino de como resultados sao pontuados. Valores maiores = mais influencia no ranking final.
+
+| Variavel | Padrao | Descricao |
+|---|---|---|
+| `SEARCHENG_RANK_POSITION_W` | `0.4` | Peso para score de posicao RRF |
+| `SEARCHENG_RANK_BM25_W` | `0.3` | Peso para relevancia textual BM25F |
+| `SEARCHENG_RANK_MULTISOURCE_W` | `0.2` | Bonus para resultados em multiplos buscadores |
+| `SEARCHENG_RANK_SNIPPET_W` | `0.1` | Peso para qualidade do snippet |
+| `SEARCHENG_RANK_TRUSTED_DOMAIN_BONUS` | `0.5` | Bonus para dominios confiaveis (GitHub, Wikipedia, etc.) |
+| `SEARCHENG_RANK_TLD_W` | `0.3` | Peso para categoria do TLD |
+| `SEARCHENG_RANK_HTTPS_BONUS` | `0.1` | Bonus para HTTPS |
+
+---
+
+## Como Funciona
+
+### Pipeline de Busca e Ranqueamento
+
+Quando voce faz uma busca, eis o que acontece:
+
+```
+ 1. Consulta recebida
+        |
+ 2. Verificar cache --> encontrou? retornar do cache
+        | (miss)
+ 3. Disparar para todos os provedores em paralelo (goroutines)
+        |
+ 4. Coletar resultados (com timeout)
+        |
+ 5. Deduplicar por URL (unir fontes)
+        |
+ 6. Pontuar cada resultado:
+        |   |-- RRF: Reciprocal Rank Fusion entre provedores
+        |   |-- BM25F: relevancia textual (titulo 3x, URL 2x, snippet 1x)
+        |   |-- Bonus multi-fonte (encontrado em 2+ buscadores)
+        |   |-- Sinais de confianca (HTTPS, TLD, dominios confiaveis)
+        |   |-- Penalidade de idioma (incompatibilidade CJK: -3.0)
+        |   +-- Penalidade de cobertura (<15% dos termos: -2.0)
+        |
+ 7. Ordenar por score, descartar negativos
+        |
+ 8. Extrair resposta (melhor frase dos snippets)
+        |
+ 9. Extrair fatos verificaveis (corroboracao cruzada)
+        |
+10. Cachear resultados, retornar resposta
+```
+
+**Formula de pontuacao:**
+
+```
+score = PositionW    * RRF * 100
+      + BM25W        * BM25F(titulo*3, snippet*1, url*2)
+      + MultiSourceW * (quantidadeFontes - 1) * 10
+      + SnippetW     * qualidadeSnippet
+      + bonusDominioConfiavel
+      + scoreTLD           (.edu/.gov: +1.0, .org: +0.5, .xyz/.click: -0.5)
+      + bonusHTTPS
+      + penalidadeIdioma   (incompatibilidade CJK: -3.0)
+      + penalidadeCobertura (baixa cobertura da consulta: -2.0)
+```
+
+### Extracao de Respostas
+
+O SearchEng escolhe a melhor frase dos resultados principais como "resposta destacada":
+
+1. Divide os snippets dos melhores resultados em frases
+2. Pontua cada frase por: sobreposicao com termos da consulta, padroes de definicao ("is a", "refers to"), tamanho e confianca da fonte
+3. A frase com maior pontuacao acima do limiar vira a resposta destacada
+4. SafeSearch filtra conteudo NSFW das respostas
+
+### Extracao de Fatos
+
+Fatos verificaveis sao afirmacoes que podem ser confirmadas. O SearchEng os extrai automaticamente:
+
+1. Identifica frases contendo numeros, datas, comparacoes ou atribuicoes ("segundo...", "de acordo com...")
+2. Agrupa fatos similares entre fontes usando similaridade de Jaccard (limiar > 0.4)
+3. Calcula confianca baseado em: quantidade de corroboracao, bonus de fonte confiavel e forca do fato
+4. Fatos encontrados em multiplas fontes independentes recebem confianca maior
+
+### Anti-Bloqueio
+
+Fazer scraping de buscadores requer gerenciamento cuidadoso de requisicoes. O SearchEng usa multiplas camadas:
+
+| Camada | O que Faz |
+|---|---|
+| **Rate limiting** | Limitador por provedor (Google: 1 req/min, DDG/Bing: 10 req/min) |
+| **Delays com jitter** | Delay aleatorio de 0.5-2s antes de cada requisicao para parecer natural |
+| **Backoff exponencial** | Retry automatico em 429/5xx com tempos de espera crescentes |
+| **Mimicry de navegador** | User-Agent rotativo com headers `Sec-CH-UA` e `Sec-Fetch-*` correspondentes |
+| **Cookie jars** | Persistencia de cookies por provedor (mantem contexto de sessao) |
+| **Deteccao de CAPTCHA** | Google: detecta redirects `/sorry/` e paginas de CAPTCHA, ativa cooldown de 5 min |
+| **Bypass de consentimento** | Google: envia cookies de consentimento para pular tela de consentimento da UE |
+
+O Google e o mais agressivo em bloquear, entao usa rate limit mais restrito (1 RPM) e sem retries automaticos.
+
+---
+
+## Arquitetura
+
+```
+                      +---------------------+
+                      |      main.go        |
+                      |  search | serve| mcp|
+                      +---+-----+------+----+
+                          |     |      |
+                     +----+     |      +----+
+                     v          v           v
+                +---------+ +--------+ +--------+
+                |   CLI   | |  REST  | |  MCP   |
+                | stdout  | | API +  | | stdio  |
+                |         | | Web UI | |        |
+                +----+----+ +---+----+ +---+----+
+                     |          |          |
+                     +----------+----------+
+                                |
+                        +-------v-------+
+                        |    Engine     |
+                        |  - paralelo  |
+                        |  - rank/merge|
+                        |  - answer    |
+                        |  - claims    |
+                        |  - cache     |
+                        +--+--+--+--+--+
+                           |  |  |  |
+                    +------+  |  |  +------+
+                    v         v  v         v
+                +------+ +------+ +----+ +-----+
+                | DDG  | |Google| |Bing| |Brave|
+                |scrape| |scrape| |scrp| | API |
+                +------+ +------+ +----+ +-----+
+```
+
+**Estrutura do projeto:**
+
+```
+SearchEng/
+|-- main.go                 Ponto de entrada: comandos CLI, serve e MCP
+|-- web/
+|   +-- index.html          Interface web (Alpine.js + Pico CSS via go:embed)
+|-- api/
+|   |-- server.go           Servidor REST API com CORS e content negotiation
+|   +-- server_test.go      Testes da API
+|-- engine/
+|   |-- engine.go           Agregador de busca (consulta paralela, ranking RRF + BM25F)
+|   |-- provider.go         Interface de provedor
+|   |-- result.go           Tipos: Result, Claim, TrustSignals
+|   |-- duckduckgo.go       Scraper do DuckDuckGo
+|   |-- google.go           Scraper do Google (deteccao de CAPTCHA + cooldown)
+|   |-- bing.go             Scraper do Bing (decodificador de URL de tracking)
+|   |-- brave.go            Cliente da API Brave Search
+|   |-- answer.go           Extracao de resposta destacada
+|   |-- claims.go           Extracao de fatos + corroboracao
+|   |-- cache.go            Cache em memoria thread-safe com TTL
+|   |-- stopwords.go        Listas de stopwords EN + PT-BR
+|   |-- httpclient.go       Transports HTTP (retry, rate-limit, jitter, headers de navegador)
+|   +-- *_test.go           Testes de cada componente
+|-- mcp/
+|   |-- server.go           Servidor MCP (JSON-RPC 2.0 via stdio)
+|   +-- server_test.go      Testes do MCP
++-- config/
+    +-- config.go           Configuracao baseada em variaveis de ambiente
+```
+
+---
+
+## Desenvolvimento
+
+```bash
+# Rodar todos os testes (com detector de race condition)
+go test ./... -race -count=1
+
+# Testes com saida verbosa
+go test ./... -race -v
+
+# Compilar o binario
+go build -o searcheng .
+
+# Analise estatica
+go vet ./...
+
+# Rodar o servidor em desenvolvimento
+go run . serve
+```
+
+**Testes:** 183 testes em 4 pacotes, todos passando com `-race`.
+
+---
+
+## Licenca
 
 [MIT](LICENSE)
