@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"encoding/base64"
 	"strings"
 	"testing"
 )
@@ -50,6 +51,50 @@ func TestBing_ParseHTML(t *testing.T) {
 	}
 }
 
+func TestExtractBingURL(t *testing.T) {
+	realURL := "https://example.com/page?q=test"
+	encoded := "a1" + base64.RawURLEncoding.EncodeToString([]byte(realURL))
+	trackingURL := "https://www.bing.com/ck/a?!&&p=abc&u=" + encoded + "&ntb=1"
+
+	got := extractBingURL(trackingURL)
+	if got != realURL {
+		t.Errorf("extractBingURL() = %q, want %q", got, realURL)
+	}
+}
+
+func TestExtractBingURL_Passthrough(t *testing.T) {
+	directURL := "https://example.com/direct"
+	got := extractBingURL(directURL)
+	if got != directURL {
+		t.Errorf("extractBingURL() = %q, want %q (passthrough)", got, directURL)
+	}
+}
+
+func TestBing_ParseTrackingURLs(t *testing.T) {
+	realURL := "https://example.com/real"
+	encoded := "a1" + base64.RawURLEncoding.EncodeToString([]byte(realURL))
+	html := `<html><body>
+		<ol id="b_results">
+			<li class="b_algo">
+				<h2><a href="https://www.bing.com/ck/a?u=` + encoded + `&ntb=1">Tracked Result</a></h2>
+				<div class="b_caption"><p>Snippet</p></div>
+			</li>
+		</ol>
+	</body></html>`
+
+	b := &Bing{}
+	results, err := b.parse(strings.NewReader(html))
+	if err != nil {
+		t.Fatalf("parse error: %v", err)
+	}
+	if len(results) != 1 {
+		t.Fatalf("expected 1 result, got %d", len(results))
+	}
+	if results[0].URL != realURL {
+		t.Errorf("result URL = %q, want %q", results[0].URL, realURL)
+	}
+}
+
 func TestBing_ParseEmptyHTML(t *testing.T) {
 	b := &Bing{}
 	results, err := b.parse(strings.NewReader("<html><body></body></html>"))
@@ -58,5 +103,38 @@ func TestBing_ParseEmptyHTML(t *testing.T) {
 	}
 	if len(results) != 0 {
 		t.Errorf("expected 0 results from empty HTML, got %d", len(results))
+	}
+}
+
+func TestExtractBingURL_MalformedURL(t *testing.T) {
+	got := extractBingURL("://not-valid")
+	if got != "://not-valid" {
+		t.Errorf("expected passthrough for malformed URL, got %q", got)
+	}
+}
+
+func TestExtractBingURL_NoUParam(t *testing.T) {
+	got := extractBingURL("https://www.bing.com/ck/a?p=abc&ntb=1")
+	if got != "https://www.bing.com/ck/a?p=abc&ntb=1" {
+		t.Errorf("expected passthrough when no u param, got %q", got)
+	}
+}
+
+func TestExtractBingURL_WithoutA1Prefix(t *testing.T) {
+	realURL := "https://example.com/page"
+	encoded := base64.RawURLEncoding.EncodeToString([]byte(realURL))
+	trackingURL := "https://www.bing.com/ck/a?u=" + encoded + "&ntb=1"
+
+	got := extractBingURL(trackingURL)
+	if got != realURL {
+		t.Errorf("extractBingURL() = %q, want %q", got, realURL)
+	}
+}
+
+func TestExtractBingURL_InvalidBase64(t *testing.T) {
+	trackingURL := "https://www.bing.com/ck/a?u=a1!!!invalid!!!&ntb=1"
+	got := extractBingURL(trackingURL)
+	if got != trackingURL {
+		t.Errorf("expected passthrough for invalid base64, got %q", got)
 	}
 }

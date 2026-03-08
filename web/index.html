@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="auto">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SearchEng — Meta-Search Engine</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3/dist/cdn.min.js"></script>
+  <style>
+    :root {
+      --source-ddg: #de5833;
+      --source-google: #4285f4;
+      --source-bing: #00809d;
+      --source-brave: #fb542b;
+      --source-default: #666;
+    }
+    body { min-height: 100vh; display: flex; flex-direction: column; }
+    main { flex: 1; }
+    .search-header { text-align: center; padding: 2rem 0 1rem; }
+    .search-header h1 { margin-bottom: 0.25rem; }
+    .search-header p { margin-top: 0; opacity: 0.7; }
+    .search-form { display: flex; gap: 0.5rem; max-width: 640px; margin: 0 auto 2rem; }
+    .search-form input { flex: 1; margin-bottom: 0; }
+    .search-form button { margin-bottom: 0; white-space: nowrap; }
+    .answer-box { border-left: 4px solid var(--pico-primary); padding: 0.75rem 1rem; margin-bottom: 1.5rem; }
+    .answer-box p { margin: 0; }
+    .result-card { margin-bottom: 1.25rem; padding: 1rem; border-radius: 8px; }
+    .result-card h3 { margin-bottom: 0.25rem; font-size: 1.1rem; }
+    .result-card h3 a { text-decoration: none; }
+    .result-url { color: var(--pico-primary); font-size: 0.85rem; word-break: break-all; display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; }
+    .result-url img { width: 16px; height: 16px; flex-shrink: 0; }
+    .result-snippet { font-size: 0.95rem; opacity: 0.85; margin-bottom: 0.5rem; }
+    .source-badges { display: flex; gap: 0.35rem; flex-wrap: wrap; }
+    .badge { font-size: 0.7rem; padding: 0.15rem 0.5rem; border-radius: 12px; color: #fff; font-weight: 600; }
+    .badge-duckduckgo { background: var(--source-ddg); }
+    .badge-google { background: var(--source-google); }
+    .badge-bing { background: var(--source-bing); }
+    .badge-brave { background: var(--source-brave); }
+    .badge-default { background: var(--source-default); }
+    .badge-trust { background: #2e7d32; }
+    .badge-https { background: #1565c0; }
+    .claims-section { margin-top: 2rem; }
+    .claim-item { margin-bottom: 1rem; }
+    .claim-text { margin-bottom: 0.25rem; }
+    .corroboration-bar { height: 6px; border-radius: 3px; background: var(--pico-muted-border-color); overflow: hidden; max-width: 200px; }
+    .corroboration-fill { height: 100%; background: var(--pico-primary); border-radius: 3px; }
+    .suggestions { display: flex; flex-wrap: wrap; gap: 0.5rem; justify-content: center; margin-top: 1rem; }
+    .suggestions button { font-size: 0.85rem; padding: 0.3rem 0.8rem; }
+    footer { text-align: center; padding: 1rem 0; font-size: 0.85rem; opacity: 0.7; }
+    .provider-status { display: inline-flex; align-items: center; gap: 0.25rem; margin: 0 0.5rem; }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+    .status-online { background: #4caf50; }
+    .status-offline { background: #f44336; }
+    .meta-line { font-size: 0.85rem; opacity: 0.7; margin-bottom: 1rem; }
+    .safe-toggle { display: flex; align-items: center; gap: 0.5rem; justify-content: center; margin-bottom: 1.5rem; font-size: 0.85rem; }
+    .safe-toggle input { margin: 0; width: auto; }
+    .load-more { display: block; margin: 1.5rem auto; }
+    .score-info { font-size: 0.75rem; opacity: 0.6; }
+  </style>
+</head>
+<body>
+  <main class="container" x-data="searchApp()" @keydown.slash.window.prevent="$refs.searchInput.focus()">
+
+    <header class="search-header">
+      <h1>SearchEng</h1>
+      <p>Meta-Search Engine</p>
+    </header>
+
+    <form class="search-form" @submit.prevent="search()" role="search">
+      <input type="search" x-model="query" x-ref="searchInput" placeholder="Search the web..."
+             autofocus aria-label="Search query">
+      <button type="submit" :aria-busy="loading" :disabled="loading">Search</button>
+    </form>
+
+    <div class="safe-toggle">
+      <label>
+        <input type="checkbox" x-model="safeSearch" role="switch">
+        SafeSearch
+      </label>
+    </div>
+
+    <!-- Empty state -->
+    <template x-if="!searched && !loading">
+      <div style="text-align:center;">
+        <p>Try searching for something:</p>
+        <div class="suggestions">
+          <button class="outline secondary" @click="query='golang concurrency'; search()">golang concurrency</button>
+          <button class="outline secondary" @click="query='best programming languages 2026'; search()">best programming languages 2026</button>
+          <button class="outline secondary" @click="query='what is WebAssembly'; search()">what is WebAssembly</button>
+          <button class="outline secondary" @click="query='rust vs go performance'; search()">rust vs go performance</button>
+        </div>
+      </div>
+    </template>
+
+    <!-- Loading -->
+    <template x-if="loading">
+      <article aria-busy="true" style="text-align:center;">
+        Searching across providers...
+      </article>
+    </template>
+
+    <!-- Error -->
+    <template x-if="error && !loading">
+      <article>
+        <p><strong>Error:</strong> <span x-text="error"></span></p>
+      </article>
+    </template>
+
+    <!-- Results -->
+    <template x-if="searched && !loading && !error">
+      <div>
+        <!-- Meta -->
+        <p class="meta-line">
+          <span x-text="results.length"></span> results in <span x-text="duration"></span>ms
+        </p>
+
+        <!-- Answer box -->
+        <template x-if="answer">
+          <article class="answer-box">
+            <p><strong>Featured Answer</strong></p>
+            <p x-text="answer"></p>
+          </article>
+        </template>
+
+        <!-- Result cards -->
+        <template x-for="(r, i) in visibleResults" :key="r.url + i">
+          <article class="result-card">
+            <h3><a :href="r.url" target="_blank" rel="noopener" x-text="r.title"></a></h3>
+            <div class="result-url">
+              <img :src="faviconUrl(r.url)" alt="" loading="lazy" onerror="this.style.display='none'">
+              <span x-text="truncateUrl(r.url)"></span>
+            </div>
+            <p class="result-snippet" x-text="r.snippet"></p>
+            <div class="source-badges">
+              <template x-for="src in parseSources(r.source)" :key="src">
+                <span class="badge" :class="badgeClass(src)" x-text="src"></span>
+              </template>
+              <template x-if="r.trust_signals && r.trust_signals.is_trusted">
+                <span class="badge badge-trust">Trusted</span>
+              </template>
+              <template x-if="r.trust_signals && r.trust_signals.is_https">
+                <span class="badge badge-https">HTTPS</span>
+              </template>
+            </div>
+            <div class="score-info" x-show="r.score">
+              Score: <span x-text="r.score?.toFixed(2)"></span>
+            </div>
+          </article>
+        </template>
+
+        <!-- Load more -->
+        <template x-if="results.length > showCount">
+          <button class="load-more outline" @click="showCount += 10">Load more</button>
+        </template>
+
+        <!-- Claims -->
+        <template x-if="claims.length > 0">
+          <section class="claims-section">
+            <h3>Verified Facts</h3>
+            <template x-for="claim in claims" :key="claim.text">
+              <div class="claim-item">
+                <p class="claim-text" x-text="claim.text"></p>
+                <div style="display:flex; align-items:center; gap:0.5rem; font-size:0.8rem; opacity:0.7;">
+                  <div class="corroboration-bar">
+                    <div class="corroboration-fill" :style="'width:' + Math.min(claim.confidence * 100, 100) + '%'"></div>
+                  </div>
+                  <span x-text="claim.corroboration + ' source' + (claim.corroboration !== 1 ? 's' : '')"></span>
+                </div>
+              </div>
+            </template>
+          </section>
+        </template>
+
+        <!-- No results -->
+        <template x-if="results.length === 0">
+          <p style="text-align:center; opacity:0.7;">No results found. Try a different query.</p>
+        </template>
+      </div>
+    </template>
+
+  </main>
+
+  <footer class="container">
+    <div>
+      <template x-data="healthCheck()" x-init="check()" x-for="p in providers" :key="p.name">
+        <span class="provider-status">
+          <span class="status-dot" :class="p.available ? 'status-online' : 'status-offline'"></span>
+          <span x-text="p.name"></span>
+        </span>
+      </template>
+    </div>
+    <small>SearchEng &mdash; Open Source Meta-Search Engine</small>
+  </footer>
+
+  <script>
+    function searchApp() {
+      return {
+        query: '',
+        results: [],
+        answer: '',
+        claims: [],
+        loading: false,
+        searched: false,
+        duration: 0,
+        error: '',
+        safeSearch: true,
+        showCount: 10,
+
+        get visibleResults() {
+          return this.results.slice(0, this.showCount);
+        },
+
+        async search() {
+          const q = this.query.trim();
+          if (!q) return;
+
+          this.loading = true;
+          this.error = '';
+          this.searched = true;
+          this.showCount = 10;
+
+          try {
+            const safeParam = this.safeSearch ? '' : '&safe_search=false';
+            const res = await fetch(`/v1/search?q=${encodeURIComponent(q)}&max_results=20${safeParam}`);
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const data = await res.json();
+
+            this.results = data.results || [];
+            this.answer = data.answer || '';
+            this.claims = data.claims || [];
+            this.duration = data.duration_ms || 0;
+          } catch (e) {
+            // Fallback to /search
+            try {
+              const safeParam = this.safeSearch ? '' : '&safe_search=false';
+              const res = await fetch(`/search?q=${encodeURIComponent(q)}${safeParam}`);
+              if (!res.ok) throw new Error(`HTTP ${res.status}`);
+              const data = await res.json();
+
+              this.results = data.results || [];
+              this.answer = '';
+              this.claims = [];
+              this.duration = data.duration_ms || 0;
+            } catch (e2) {
+              this.error = 'Search failed. Is the server running?';
+              this.results = [];
+            }
+          } finally {
+            this.loading = false;
+          }
+        },
+
+        faviconUrl(url) {
+          try {
+            const host = new URL(url).host;
+            return `https://www.google.com/s2/favicons?domain=${host}&sz=32`;
+          } catch { return ''; }
+        },
+
+        truncateUrl(url) {
+          try {
+            const u = new URL(url);
+            const path = u.pathname.length > 40 ? u.pathname.substring(0, 40) + '...' : u.pathname;
+            return u.host + path;
+          } catch { return url; }
+        },
+
+        parseSources(source) {
+          if (!source) return [];
+          return source.split(',').map(s => s.trim()).filter(Boolean);
+        },
+
+        badgeClass(source) {
+          const s = source.toLowerCase();
+          if (s.includes('duckduckgo') || s === 'ddg') return 'badge-duckduckgo';
+          if (s.includes('google')) return 'badge-google';
+          if (s.includes('bing')) return 'badge-bing';
+          if (s.includes('brave')) return 'badge-brave';
+          return 'badge-default';
+        }
+      };
+    }
+
+    function healthCheck() {
+      return {
+        providers: [],
+        async check() {
+          try {
+            const res = await fetch('/health');
+            const data = await res.json();
+            this.providers = data.providers || [];
+          } catch { /* silent */ }
+        }
+      };
+    }
+  </script>
+</body>
+</html>

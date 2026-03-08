@@ -3,6 +3,7 @@ package engine
 import (
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestGoogle_Name(t *testing.T) {
@@ -70,5 +71,110 @@ func TestGoogle_ParseSkipsNoHref(t *testing.T) {
 	}
 	if len(results) != 0 {
 		t.Errorf("expected 0 results (no href), got %d", len(results))
+	}
+}
+
+func TestGoogle_DetectCaptcha_SorryForm(t *testing.T) {
+	html := `<html><body>
+		<form action="/sorry/index">
+			<input type="submit" value="Submit">
+		</form>
+	</body></html>`
+
+	g := &Google{}
+	results, err := g.parse(strings.NewReader(html))
+	if err == nil {
+		t.Fatal("expected CAPTCHA error, got nil")
+	}
+	if !strings.Contains(err.Error(), "CAPTCHA") {
+		t.Errorf("error = %q, expected CAPTCHA message", err.Error())
+	}
+	if len(results) != 0 {
+		t.Errorf("expected 0 results on CAPTCHA, got %d", len(results))
+	}
+}
+
+func TestGoogle_DetectCaptcha_CaptchaForm(t *testing.T) {
+	html := `<html><body>
+		<form id="captcha-form" action="/captcha">
+			<input type="text">
+		</form>
+	</body></html>`
+
+	g := &Google{}
+	_, err := g.parse(strings.NewReader(html))
+	if err == nil {
+		t.Fatal("expected CAPTCHA error")
+	}
+}
+
+func TestGoogle_DetectsSorryRedirect(t *testing.T) {
+	// The /sorry/ redirect is detected at the HTTP level in Search(),
+	// but we can test that detectCaptcha catches the form action.
+	html := `<html><body>
+		<form action="/sorry/index?continue=...">
+			<input type="submit">
+		</form>
+	</body></html>`
+
+	g := &Google{}
+	_, err := g.parse(strings.NewReader(html))
+	if err == nil {
+		t.Fatal("expected CAPTCHA error for /sorry/ form")
+	}
+	if err != ErrCaptcha {
+		t.Errorf("error = %v, want ErrCaptcha", err)
+	}
+}
+
+func TestGoogle_CooldownAfterCaptcha(t *testing.T) {
+	g := &Google{}
+	g.startCooldown()
+
+	g.mu.Lock()
+	cooldown := g.cooldownUntil
+	g.mu.Unlock()
+
+	if cooldown.Before(time.Now().Add(4 * time.Minute)) {
+		t.Error("cooldown should be ~5 minutes from now")
+	}
+}
+
+func TestHasAccentedChars(t *testing.T) {
+	tests := []struct {
+		input string
+		want  bool
+	}{
+		{"hello world", false},
+		{"vaporizador de ervas", false},
+		{"como começar", true},
+		{"café com leite", true},
+		{"programação avançada", true},
+	}
+	for _, tt := range tests {
+		if got := hasAccentedChars(tt.input); got != tt.want {
+			t.Errorf("hasAccentedChars(%q) = %v, want %v", tt.input, got, tt.want)
+		}
+	}
+}
+
+func TestGoogle_FallbackExtract(t *testing.T) {
+	html := `<html><body>
+		<div class="tF2Cxc">
+			<a href="https://example.com/fallback"><h3>Fallback Result</h3></a>
+			<div class="VwiC3b">Fallback snippet</div>
+		</div>
+	</body></html>`
+
+	g := &Google{}
+	results, err := g.parse(strings.NewReader(html))
+	if err != nil {
+		t.Fatalf("parse error: %v", err)
+	}
+	if len(results) != 1 {
+		t.Fatalf("expected 1 fallback result, got %d", len(results))
+	}
+	if results[0].URL != "https://example.com/fallback" {
+		t.Errorf("URL = %q, want fallback URL", results[0].URL)
 	}
 }

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math/rand"
 	"net/http"
+	"strings"
 	"time"
 
 	"golang.org/x/time/rate"
@@ -20,6 +21,27 @@ var userAgentPool = []string{
 
 func randomUserAgent() string {
 	return userAgentPool[rand.Intn(len(userAgentPool))]
+}
+
+// NewJitteredTransport wraps a transport with a random pre-request delay.
+func NewJitteredTransport(base http.RoundTripper, minDelay, maxDelay time.Duration) http.RoundTripper {
+	return &jitteredTransport{base: base, minDelay: minDelay, maxDelay: maxDelay}
+}
+
+type jitteredTransport struct {
+	base     http.RoundTripper
+	minDelay time.Duration
+	maxDelay time.Duration
+}
+
+func (t *jitteredTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	jitter := t.minDelay + time.Duration(rand.Int63n(int64(t.maxDelay-t.minDelay)))
+	select {
+	case <-time.After(jitter):
+	case <-req.Context().Done():
+		return nil, req.Context().Err()
+	}
+	return t.base.RoundTrip(req)
 }
 
 // NewRetryTransport creates a transport that retries on 429, 503, 5xx, and network errors.
@@ -50,10 +72,13 @@ func (t *retryTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 
 		resp, err = t.base.RoundTrip(req)
 		if err != nil {
+			if resp != nil && resp.Body != nil {
+				resp.Body.Close()
+			}
 			continue
 		}
 
-		if resp.StatusCode == 429 || resp.StatusCode == 503 || resp.StatusCode >= 500 {
+		if resp.StatusCode == 429 || (resp.StatusCode >= 500 && resp.StatusCode <= 599) {
 			if attempt < t.maxRetries {
 				resp.Body.Close()
 				continue
@@ -85,10 +110,24 @@ func (t *rateLimitedTransport) RoundTrip(req *http.Request) (*http.Response, err
 }
 
 func setBrowserHeaders(req *http.Request) {
-	req.Header.Set("User-Agent", randomUserAgent())
+	ua := randomUserAgent()
+	req.Header.Set("User-Agent", ua)
 	req.Header.Set("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8")
 	req.Header.Set("Accept-Language", "en-US,en;q=0.9")
 	req.Header.Set("DNT", "1")
 	req.Header.Set("Connection", "keep-alive")
 	req.Header.Set("Upgrade-Insecure-Requests", "1")
+
+	// Sec-Fetch headers matching a real browser navigation
+	req.Header.Set("Sec-Fetch-Dest", "document")
+	req.Header.Set("Sec-Fetch-Mode", "navigate")
+	req.Header.Set("Sec-Fetch-Site", "none")
+	req.Header.Set("Sec-Fetch-User", "?1")
+
+	// Sec-CH-UA matching the User-Agent
+	if strings.Contains(ua, "Chrome/") {
+		req.Header.Set("Sec-CH-UA", `"Chromium";v="131", "Not_A Brand";v="24", "Google Chrome";v="131"`)
+		req.Header.Set("Sec-CH-UA-Mobile", "?0")
+		req.Header.Set("Sec-CH-UA-Platform", `"Windows"`)
+	}
 }

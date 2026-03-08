@@ -1,6 +1,8 @@
 package engine
 
 import (
+	"context"
+	"encoding/base64"
 	"fmt"
 	"io"
 	"net/http"
@@ -17,18 +19,32 @@ type Bing struct {
 
 func (b *Bing) Name() string { return "Bing" }
 
-func (b *Bing) Search(query string, page int) ([]Result, error) {
+func (b *Bing) Search(ctx context.Context, query string, page int) ([]Result, error) {
 	params := url.Values{}
 	params.Set("q", query)
 	if page > 1 {
 		params.Set("first", fmt.Sprintf("%d", (page-1)*10+1))
 	}
 
-	req, err := http.NewRequest("GET", "https://www.bing.com/search?"+params.Encode(), nil)
+	// Set language params based on query content
+	if hasAccentedChars(query) {
+		params.Set("setlang", "pt-BR")
+		params.Set("cc", "BR")
+	} else {
+		params.Set("setlang", "en")
+		params.Set("cc", "US")
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "GET", "https://www.bing.com/search?"+params.Encode(), nil)
 	if err != nil {
 		return nil, err
 	}
 	setBrowserHeaders(req)
+
+	// Match Accept-Language to query language
+	if hasAccentedChars(query) {
+		req.Header.Set("Accept-Language", "pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7")
+	}
 
 	resp, err := b.client().Do(req)
 	if err != nil {
@@ -91,7 +107,7 @@ func (b *Bing) extractResult(li *html.Node) Result {
 					result.Title = textContent(c)
 					for _, attr := range c.Attr {
 						if attr.Key == "href" && strings.HasPrefix(attr.Val, "http") {
-							result.URL = attr.Val
+							result.URL = extractBingURL(attr.Val)
 						}
 					}
 					return
@@ -125,4 +141,35 @@ func (b *Bing) extractResult(li *html.Node) Result {
 	findSnippet(li)
 
 	return result
+}
+
+// extractBingURL extracts the real URL from Bing's tracking redirect.
+// Bing wraps URLs as bing.com/ck/a?...&u=a1<base64url>&... where the u param
+// starts with "a1" followed by the base64url-encoded destination.
+func extractBingURL(rawURL string) string {
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return rawURL
+	}
+	if u.Host != "www.bing.com" && u.Host != "bing.com" {
+		return rawURL
+	}
+	uParam := u.Query().Get("u")
+	if uParam == "" {
+		return rawURL
+	}
+	// Strip the "a1" prefix that Bing prepends
+	encoded := uParam
+	if strings.HasPrefix(encoded, "a1") {
+		encoded = encoded[2:]
+	}
+	decoded, err := base64.RawURLEncoding.DecodeString(encoded)
+	if err != nil {
+		return rawURL
+	}
+	result := string(decoded)
+	if strings.HasPrefix(result, "http") {
+		return result
+	}
+	return rawURL
 }

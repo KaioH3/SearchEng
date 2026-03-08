@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -17,18 +18,27 @@ type DuckDuckGo struct {
 
 func (d *DuckDuckGo) Name() string { return "DuckDuckGo" }
 
-func (d *DuckDuckGo) Search(query string, page int) ([]Result, error) {
+func (d *DuckDuckGo) Search(ctx context.Context, query string, page int) ([]Result, error) {
 	params := url.Values{}
 	params.Set("q", query)
 	if page > 1 {
 		params.Set("s", fmt.Sprintf("%d", (page-1)*30))
 	}
 
-	req, err := http.NewRequest("GET", "https://html.duckduckgo.com/html/?"+params.Encode(), nil)
+	// Set language hint for Portuguese queries
+	if hasAccentedChars(query) {
+		params.Set("kl", "br-pt")
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "GET", "https://html.duckduckgo.com/html/?"+params.Encode(), nil)
 	if err != nil {
 		return nil, err
 	}
 	setBrowserHeaders(req)
+
+	if hasAccentedChars(query) {
+		req.Header.Set("Accept-Language", "pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7")
+	}
 
 	resp, err := d.client().Do(req)
 	if err != nil {
@@ -36,6 +46,9 @@ func (d *DuckDuckGo) Search(query string, page int) ([]Result, error) {
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode == http.StatusAccepted {
+		return nil, fmt.Errorf("duckduckgo: rate limited (202)")
+	}
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("duckduckgo: status %d", resp.StatusCode)
 	}
@@ -74,7 +87,7 @@ func (d *DuckDuckGo) parse(r io.Reader) ([]Result, error) {
 				result.Snippet = textContent(snippet)
 			}
 
-			if result.URL != "" && result.Title != "" {
+			if result.URL != "" && result.Title != "" && !isDDGAd(result.URL) {
 				results = append(results, result)
 			}
 		}
@@ -84,6 +97,11 @@ func (d *DuckDuckGo) parse(r io.Reader) ([]Result, error) {
 	}
 	f(doc)
 	return results, nil
+}
+
+// isDDGAd returns true if the URL is a DuckDuckGo ad/sponsored link.
+func isDDGAd(rawURL string) bool {
+	return strings.Contains(rawURL, "duckduckgo.com/y.js")
 }
 
 // extractDDGURL extracts the actual URL from DuckDuckGo's redirect URL.

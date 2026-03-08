@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"context"
 	"testing"
 )
 
@@ -13,7 +14,7 @@ func TestBrave_Name(t *testing.T) {
 
 func TestBrave_SearchWithoutAPIKey(t *testing.T) {
 	b := &Brave{APIKey: ""}
-	_, err := b.Search("test", 1)
+	_, err := b.Search(context.Background(), "test", 1)
 	if err == nil {
 		t.Error("expected error when API key is empty")
 	}

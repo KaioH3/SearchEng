@@ -130,6 +130,52 @@ func TestDuckDuckGo_ParseHTML(t *testing.T) {
 	}
 }
 
+func TestDDG_FiltersAdURLs(t *testing.T) {
+	html := `<html><body>
+		<div class="result">
+			<a class="result__a" href="//duckduckgo.com/y.js?ad_domain=example.com&amp;u=https%3A%2F%2Fexample.com">
+				Sponsored Result
+			</a>
+			<a class="result__snippet">Ad snippet</a>
+		</div>
+		<div class="result">
+			<a class="result__a" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Freal-result.com">
+				Real Result
+			</a>
+			<a class="result__snippet">Real snippet</a>
+		</div>
+	</body></html>`
+
+	ddg := &DuckDuckGo{}
+	results, err := ddg.parse(strings.NewReader(html))
+	if err != nil {
+		t.Fatalf("parse error: %v", err)
+	}
+
+	for _, r := range results {
+		if strings.Contains(r.URL, "duckduckgo.com/y.js") {
+			t.Errorf("ad URL leaked through: %s", r.URL)
+		}
+	}
+}
+
+func TestIsDDGAd(t *testing.T) {
+	tests := []struct {
+		url  string
+		want bool
+	}{
+		{"https://duckduckgo.com/y.js?ad_domain=example.com", true},
+		{"//duckduckgo.com/y.js?ad_domain=foo.com&u=bar", true},
+		{"https://example.com/page", false},
+		{"https://duckduckgo.com/l/?uddg=https://example.com", false},
+	}
+	for _, tt := range tests {
+		if got := isDDGAd(tt.url); got != tt.want {
+			t.Errorf("isDDGAd(%q) = %v, want %v", tt.url, got, tt.want)
+		}
+	}
+}
+
 func TestDuckDuckGo_ParseEmptyHTML(t *testing.T) {
 	ddg := &DuckDuckGo{}
 	results, err := ddg.parse(strings.NewReader("<html><body></body></html>"))

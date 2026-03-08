@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -15,7 +16,7 @@ type Brave struct {
 
 func (b *Brave) Name() string { return "Brave" }
 
-func (b *Brave) Search(query string, page int) ([]Result, error) {
+func (b *Brave) Search(ctx context.Context, query string, page int) ([]Result, error) {
 	if b.APIKey == "" {
 		return nil, fmt.Errorf("brave: API key not configured")
 	}
@@ -27,7 +28,7 @@ func (b *Brave) Search(query string, page int) ([]Result, error) {
 		params.Set("offset", fmt.Sprintf("%d", (page-1)*10))
 	}
 
-	req, err := http.NewRequest("GET", "https://api.search.brave.com/res/v1/web/search?"+params.Encode(), nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", "https://api.search.brave.com/res/v1/web/search?"+params.Encode(), nil)
 	if err != nil {
 		return nil, err
 	}
